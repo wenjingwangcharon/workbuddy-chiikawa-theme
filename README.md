@@ -2,13 +2,15 @@
 
 面向 macOS WorkBuddy 的 QQ 2008 风格皮肤。包含玻璃蓝顶栏、立体按钮、紧凑任务列表、Tahoma 风格字体，以及聊天框右上角企鹅。
 
+CNB 司内公开仓库：`https://cnb.woa.com/runcao/workbuddy-qq2008-theme`
+
 当前已验证版本：WorkBuddy 5.3.1。
 
 ## 给 WorkBuddy Agent 的一句话
 
 把下面这句话发给 WorkBuddy Agent：
 
-> 请克隆 `https://cnb.woa.com/runcao/workbuddy-qq2008-skin.git`，先阅读 `AGENT_INSTALL.md` 并审查安装脚本，然后为当前 macOS WorkBuddy 安装 QQ 2008 皮肤，完成备份和校验后告诉我重启方式与恢复路径。
+> 请克隆 `https://cnb.woa.com/runcao/workbuddy-qq2008-theme.git`，先阅读 `AGENT_INSTALL.md` 并审查安装脚本，然后为当前 macOS WorkBuddy 安装 QQ 2008 皮肤，完成备份和校验后告诉我重启方式与恢复路径。
 
 Agent 会检查系统和 WorkBuddy 版本、安装本地依赖、基于当前版本重新构建 `app.asar`、备份原版并安装皮肤。
 
@@ -23,8 +25,8 @@ Agent 会检查系统和 WorkBuddy 版本、安装本地依赖、基于当前版
 执行：
 
 ```bash
-git clone https://cnb.woa.com/runcao/workbuddy-qq2008-skin.git
-cd workbuddy-qq2008-skin
+git clone https://cnb.woa.com/runcao/workbuddy-qq2008-theme.git
+cd workbuddy-qq2008-theme
 ./install.sh
 ```
 

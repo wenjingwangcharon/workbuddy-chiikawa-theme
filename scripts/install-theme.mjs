@@ -1,0 +1,50 @@
+#!/usr/bin/env node
+import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+
+const args = process.argv.slice(2);
+const getArg = (name, fallback = "") => {
+  const i = args.indexOf(name);
+  return i >= 0 && args[i + 1] ? args[i + 1] : fallback;
+};
+const patched = path.resolve(getArg("--patched"));
+const target = path.resolve(getArg("--target", "/Applications/WorkBuddy.app/Contents/Resources/app.asar"));
+const backupRoot = path.resolve(getArg("--backup-dir", path.join(os.homedir(), ".workbuddy", "backups", "workbuddy-qq2008")));
+const allowRunning = args.includes("--allow-running");
+
+if (!patched || !fs.existsSync(patched)) throw new Error("请使用 --patched 指定已验证的 app.qq2008.asar");
+if (!fs.existsSync(target)) throw new Error(`找不到 WorkBuddy 资源：${target}`);
+
+const processCheck = spawnSync("/usr/bin/pgrep", ["-fl", "/Applications/WorkBuddy.app/Contents/Frameworks/WorkBuddy Helper"], { encoding: "utf8" });
+const isRunning = Boolean((processCheck.stdout || "").trim());
+if (isRunning && !allowRunning) throw new Error("WorkBuddy 仍在运行。请完全退出应用后再安装，或在明确承担风险后传入 --allow-running。");
+if (isRunning && allowRunning) console.warn("WorkBuddy 正在运行：将原子替换资源文件，必须完全退出并重启后才会生效。");
+
+const hash = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+const stamp = new Date().toISOString().replaceAll(":", "-");
+const backupDir = path.join(backupRoot, stamp);
+const backup = path.join(backupDir, "app.asar");
+const temp = `${target}.qq2008-installing`;
+fs.mkdirSync(backupDir, { recursive: true });
+fs.copyFileSync(target, backup);
+if (hash(target) !== hash(backup)) throw new Error("备份校验失败，已停止安装。");
+
+fs.copyFileSync(patched, temp);
+if (hash(patched) !== hash(temp)) {
+  fs.rmSync(temp, { force: true });
+  throw new Error("补丁复制校验失败，原应用未改动。");
+}
+fs.renameSync(temp, target);
+
+const receipt = {
+  installedAt: new Date().toISOString(),
+  target,
+  backup,
+  originalSha256: hash(backup),
+  patchedSha256: hash(target)
+};
+fs.writeFileSync(path.join(backupDir, "receipt.json"), `${JSON.stringify(receipt, null, 2)}\n`);
+console.log(JSON.stringify(receipt, null, 2));

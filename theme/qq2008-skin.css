@@ -794,3 +794,327 @@ body [role="dialog"],
 .wb-home-composer__input-slot [class*="topRightSlotStandalone"] video {
   display: none !important;
 }
+
+/* QQ 2008 night mode ------------------------------------------------------- */
+
+body.dark {
+  color-scheme: dark;
+  --vscode-foreground: #d8e9f3 !important;
+  --vscode-editor-foreground: #d8e9f3 !important;
+  --vscode-descriptionForeground: #8fa9b9 !important;
+  --vscode-disabledForeground: #607989 !important;
+  --vscode-editor-background: #0b1822 !important;
+  --vscode-sideBar-background: #102a3a !important;
+  --vscode-panel-background: #0f202c !important;
+  --vscode-input-background: #142936 !important;
+  --vscode-dropdown-background: #152c3a !important;
+  --vscode-menu-background: #152c3a !important;
+  --vscode-editorWidget-background: #152c3a !important;
+  --vscode-textCodeBlock-background: #0a1720 !important;
+  --vscode-input-border: #315f78 !important;
+  --vscode-focusBorder: #49a9de !important;
+  --vscode-icon-foreground: #91b7cb !important;
+  --vscode-textLink-foreground: #61b8e8 !important;
+  --vscode-textLink-activeForeground: #91d7fa !important;
+  --vscode-button-background: #1c78aa !important;
+  --vscode-button-hoverBackground: #278dbf !important;
+  --vscode-list-hoverBackground: #18384a !important;
+  --vscode-list-activeSelectionBackground: #20506b !important;
+  --vscode-list-activeSelectionForeground: #f0f9ff !important;
+  --wb-home-bg-primary: #102a3a !important;
+  --wb-home-bg-secondary: #0b1923 !important;
+  --wb-bg-primary: #132733 !important;
+  --wb-bg-secondary: #0f202c !important;
+  --wb-bg-tertiary: #193340 !important;
+  --wb-bg-hover: #1a3b4d !important;
+  --wb-bg-active: #20516b !important;
+  --wb-sidebar-bg: #102a3a !important;
+  --wb-text-primary: #d8e9f3 !important;
+  --wb-text-strong: #edf8ff !important;
+  --wb-text-medium: #b7cedb !important;
+  --wb-text-secondary: #91abba !important;
+  --wb-text-tertiary: #718b9a !important;
+  --wb-color-text-primary: #d8e9f3 !important;
+  --wb-color-text-secondary: #91abba !important;
+  --wb-color-text-tertiary: #718b9a !important;
+  --wb-icon-primary: #a7c9da !important;
+  --wb-icon-secondary: #83a7ba !important;
+  --wb-icon-muted: #668291 !important;
+  --wb-border-default: #315b71 !important;
+  --wb-border-subtle: #203d4d !important;
+  --wb-border-focus: #49a9de !important;
+  --wb-bg-card-strong: #142936 !important;
+  --wb-bg-pill-hover: #1a3b4d !important;
+  --wb-bg-pill-active: #1d78a9 !important;
+  --wb-bg-pill-active-hover: #278dbf !important;
+  --wb-control-selected-bg: #1d78a9 !important;
+  --wb-control-selected-bg-hover: #278dbf !important;
+  --wb-button-primary-bg: #1d78a9 !important;
+  --wb-button-primary-bg-hover: #278dbf !important;
+  --wb-button-primary-bg-active: #145c84 !important;
+  --wb-quick-action-arrow-bg: #17303d !important;
+  --wb-quick-action-selected-bg: #1d78a9 !important;
+  --wb-quick-action-item-bg-hover: #1a3b4d !important;
+  --wb-quick-action-item-border-hover: #47758d !important;
+  --wb-quick-action-sub-item-bg: #142b38 !important;
+  --wb-quick-action-sub-item-hover-bg: #1a3b4d !important;
+  --wb-home-composer-card-bg: #132733 !important;
+  --wb-home-composer-sub-card-bg: #0f202c !important;
+  --wb-home-composer-chip-bg-hover: #1a3b4d !important;
+  --wb-home-composer-arrow-fg: #8ca9b8 !important;
+  --wb-quick-actions-fade-bg: #0b1923 !important;
+  --cb-dropdown-bg-color: #152c3a !important;
+  --cb-dropdown-item-hover-bg-color: #1a3b4d !important;
+  --cb-hover-card-bg-color: #1a3b4d !important;
+}
+
+body.dark,
+body.dark #root {
+  color: #d8e9f3 !important;
+  background: #09151e !important;
+}
+
+body.dark .teams-container.is-mac {
+  --wb-home-bg-primary: #102a3a !important;
+  --wb-home-bg-secondary: #0b1923 !important;
+  --wb-home-input-slot-bg: #132733 !important;
+  --wb-bg-input-slot-gradient: #102532 !important;
+}
+
+body.dark .teams-container {
+  background: #0c2534 !important;
+  box-shadow: inset 0 0 0 1px rgba(117, 190, 226, .26) !important;
+}
+
+body.dark .teams-container [data-view-id="sidebar"],
+body.dark .conversation-sidebar,
+body.dark .conversation-list {
+  background: linear-gradient(180deg, #173b50 0%, #102c3c 48%, #0c202d 100%) !important;
+  border-right-color: #2e607a !important;
+  box-shadow: inset -1px 0 rgba(125, 194, 226, .12) !important;
+}
+
+body.dark .conversation-list-topbar,
+body.dark .claw-agent-chat-topbar,
+body.dark .workbuddy-topbar,
+body.dark .teams-top-bar {
+  background: linear-gradient(180deg, #246f9c 0%, #18567c 45%, #0b3a5b 52%, #125171 100%) !important;
+  border-bottom-color: #071f31 !important;
+  box-shadow: inset 0 1px rgba(159, 220, 248, .4), inset 0 -1px rgba(0, 0, 0, .3) !important;
+  text-shadow: 0 1px #061c2b !important;
+}
+
+body.dark .conversation-list-header {
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(111, 191, 229, .18), transparent 55%),
+    linear-gradient(180deg, #173b50 0%, #102b3b 100%) !important;
+  border-bottom-color: #2c5c73 !important;
+  box-shadow: inset 0 1px rgba(136, 203, 233, .16) !important;
+}
+
+body.dark .conversation-list-logo-row {
+  border-color: #356981 !important;
+  background: linear-gradient(135deg, rgba(63, 125, 155, .38), rgba(12, 42, 58, .75)) !important;
+  box-shadow: inset 0 1px rgba(146, 208, 236, .2), 0 1px 2px rgba(0, 0, 0, .32) !important;
+}
+
+body.dark .conversation-list-logo .logo-workbuddy-title {
+  color: #b9d9e9 !important;
+  text-shadow: 0 1px #061923 !important;
+}
+
+body.dark .conversation-list-version-badge,
+body.dark .conversation-agent-card [class*="time"] {
+  color: #7899aa !important;
+}
+
+body.dark .conversation-list-tab-button,
+body.dark .conversation-agent-card,
+body.dark .conversation-agent-card [class*="title"],
+body.dark .conversation-agent-card [class*="name"] {
+  color: #bfd6e2 !important;
+}
+
+body.dark .conversation-list-tab-button svg {
+  color: #8eb4c7 !important;
+}
+
+body.dark .conversation-list-tab-row:hover,
+body.dark .conversation-list-tab-button-box:hover,
+body.dark .conversation-agent-card:hover {
+  border-color: #396b82 !important;
+  background: linear-gradient(180deg, rgba(55, 108, 135, .6), rgba(20, 57, 74, .72)) !important;
+  box-shadow: inset 0 1px rgba(135, 198, 226, .16) !important;
+}
+
+body.dark .conversation-list-tab-row.active,
+body.dark .conversation-list-tab-button-box.active,
+body.dark .conversation-agent-card[class*="selected"] {
+  border-color: #3e83a5 !important;
+  background: linear-gradient(180deg, #286888 0%, #194b67 48%, #173d53 100%) !important;
+  color: #f1faff !important;
+  box-shadow: inset 0 1px rgba(164, 220, 246, .28) !important;
+}
+
+body.dark .conversation-list-tab-row.active .conversation-list-tab-button,
+body.dark .conversation-list-tab-button-box.active .conversation-list-tab-button {
+  color: #f1faff !important;
+}
+
+body.dark .conversation-section-label {
+  border-color: #315f76 !important;
+  background: linear-gradient(180deg, rgba(52, 103, 129, .55), rgba(15, 46, 62, .72)) !important;
+  box-shadow: inset 0 1px rgba(137, 202, 232, .16) !important;
+}
+
+body.dark .conversation-section-label:hover {
+  background: rgba(65, 126, 154, .32) !important;
+}
+
+body.dark .conversation-section-label-text {
+  color: #8fb5c8 !important;
+  text-shadow: 0 1px #061923 !important;
+}
+
+body.dark .conversation-list-footer {
+  border-top-color: #2c5970 !important;
+  background: linear-gradient(180deg, #133448 0%, #0d2635 100%) !important;
+  box-shadow: inset 0 1px rgba(128, 192, 221, .14) !important;
+}
+
+body.dark .user-menu-trigger--workbuddy {
+  border-color: #35677e !important;
+  background: linear-gradient(135deg, rgba(45, 91, 112, .78), rgba(14, 43, 57, .9)) !important;
+  box-shadow: inset 0 1px rgba(142, 203, 231, .18), 0 1px 2px rgba(0, 0, 0, .32) !important;
+  color: #d8e9f3 !important;
+}
+
+body.dark .user-menu-trigger--workbuddy:hover {
+  border-color: #4a87a4 !important;
+  background: linear-gradient(135deg, rgba(55, 111, 137, .82), rgba(18, 52, 68, .92)) !important;
+}
+
+body.dark .user-menu-trigger-name {
+  color: #e7f4fa !important;
+}
+
+body.dark .user-menu-enterprise-badge {
+  border-color: #806d38 !important;
+  background: linear-gradient(180deg, #5e5128, #463c20) !important;
+  color: #f0d789 !important;
+  box-shadow: inset 0 1px rgba(255, 239, 173, .2) !important;
+}
+
+body.dark .teams-container [data-view-id]:not([data-view-id="sidebar"]),
+body.dark .teams-main-content,
+body.dark .main-content,
+body.dark .main-content--welcome,
+body.dark .welcome,
+body.dark .welcome-container,
+body.dark .claw-agent-chat-pane {
+  background-color: #0b1923 !important;
+  background-image:
+    radial-gradient(circle at 91% 12%, rgba(119, 199, 234, .34) 0 2px, transparent 3px),
+    radial-gradient(circle at 86% 18%, rgba(119, 199, 234, .22) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 82% 16%, rgba(37, 96, 122, .28), transparent 34%),
+    linear-gradient(135deg, #102b3b 0%, #0b1923 46%, #0e2330 100%) !important;
+}
+
+body.dark .wb-home-header__title,
+body.dark .claw-agent-chat-pane .colleague-chat-empty-profile__title {
+  color: #ccecff !important;
+  text-shadow: 0 1px #04131c !important;
+}
+
+body.dark .wb-scene-tabs {
+  border-color: #376d86 !important;
+  background: linear-gradient(180deg, rgba(49, 98, 122, .75), rgba(15, 43, 57, .82)) !important;
+  box-shadow: inset 0 1px rgba(145, 207, 235, .18), 0 1px 2px rgba(0, 0, 0, .3) !important;
+}
+
+body.dark .wb-scene-tabs__pill {
+  color: #a9c4d2 !important;
+}
+
+body.dark .wb-scene-tabs__pill:hover:not(.wb-scene-tabs__pill--active) {
+  background: #1a3c4e !important;
+  color: #d8edf7 !important;
+}
+
+body.dark .wb-home-composer__chips .quick-actions__item,
+body.dark .wb-home-composer__chips .quick-actions-sub__item,
+body.dark .wb-home-composer__chip,
+body.dark .claw-agent-chat-pane .colleague-chat-suggestions__item {
+  border-color: #37677d !important;
+  background: linear-gradient(180deg, #1b3948 0%, #142c39 48%, #102531 100%) !important;
+  color: #bfd7e3 !important;
+  box-shadow: inset 0 1px rgba(143, 203, 231, .16), 0 1px 2px rgba(0, 0, 0, .28) !important;
+}
+
+body.dark .wb-home-composer__chips .quick-actions__item:hover,
+body.dark .wb-home-composer__chips .quick-actions-sub__item:hover,
+body.dark .wb-home-composer__chip:hover,
+body.dark .claw-agent-chat-pane .colleague-chat-suggestions__item:hover {
+  border-color: #4b87a2 !important;
+  background: linear-gradient(180deg, #244b5e 0%, #193846 100%) !important;
+  color: #effaff !important;
+}
+
+body.dark .wb-home-composer__chips .quick-actions__item--selected {
+  border-color: #3b86a9 !important;
+  background: #1c5672 !important;
+  color: #effaff !important;
+}
+
+body.dark .wb-home-composer__input-slot,
+body.dark .claw-agent-chat-pane .colleague-chat-cb-chat [class*="input-area-container"],
+body.dark .project-detail-view__chat-input,
+body.dark .atm-modal-chat-input {
+  border-color: #3a7895 !important;
+  background: #132733 !important;
+  box-shadow: 0 0 0 2px rgba(45, 108, 138, .38), inset 0 1px 3px rgba(0, 0, 0, .42), 0 2px 5px rgba(0, 0, 0, .32) !important;
+}
+
+body.dark .wb-home-composer__input-slot > *,
+body.dark .wb-home-composer__input-slot [class*="mainArea"],
+body.dark .claw-agent-chat-pane [class*="input-area-container"] [class*="mainArea"] {
+  background: #132733 !important;
+}
+
+body.dark .wb-home-composer__input-slot [class*="editable"][contenteditable="true"],
+body.dark .claw-agent-chat-pane [contenteditable="true"] {
+  color: #d8e9f3 !important;
+}
+
+body.dark [contenteditable="true"]:empty::before,
+body.dark input::placeholder,
+body.dark textarea::placeholder {
+  color: #718b9a !important;
+}
+
+body.dark .wb-input-footer {
+  border-top-color: #294b5d !important;
+  background: linear-gradient(180deg, #122834, #0d202b) !important;
+}
+
+body.dark [role="dialog"],
+body.dark .workspace-more-popover,
+body.dark .user-menu-popover {
+  border-color: #396a80 !important;
+  background: linear-gradient(180deg, #183441 0%, #102631 100%) !important;
+  box-shadow: inset 0 1px rgba(141, 202, 229, .14), 0 8px 22px rgba(0, 0, 0, .48) !important;
+}
+
+body.dark ::-webkit-scrollbar-thumb {
+  background: #365f72 !important;
+  background-clip: padding-box !important;
+}
+
+body.dark ::selection {
+  color: #ffffff !important;
+  background: #257eaa !important;
+}
+
+body.dark .wb-home-composer__input-slot [class*="topRightSlotStandalone"] img {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .52)) brightness(.9);
+}

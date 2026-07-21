@@ -1,6 +1,6 @@
 # WorkBuddy QQ 2008 皮肤
 
-面向 macOS WorkBuddy 的 QQ 2008 风格皮肤。包含玻璃蓝顶栏、立体按钮、紧凑任务列表、Tahoma 风格字体，以及聊天框右上角企鹅。
+面向 macOS WorkBuddy 的 QQ 2008 风格皮肤。包含玻璃蓝顶栏、立体按钮、紧凑任务列表、Tahoma 风格字体、聊天框右上角企鹅，以及随 WorkBuddy 外观设置自动切换的深色模式。
 
 CNB 司内公开仓库：`https://cnb.woa.com/runcao/workbuddy-qq2008-theme`
 

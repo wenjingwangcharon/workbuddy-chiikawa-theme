@@ -4,7 +4,7 @@
 
 CNB 司内公开仓库：`https://cnb.woa.com/runcao/workbuddy-qq2008-theme`
 
-当前已验证版本：WorkBuddy 5.3.1。
+当前已验证版本：WorkBuddy 5.3.3。
 
 ## 给 WorkBuddy Agent 的一句话
 

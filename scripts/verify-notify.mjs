@@ -17,36 +17,38 @@ class FakeDate extends Date {
 
 class FakeHTMLElement {}
 
-class FakeStatusNode {
-  constructor(state) {
-    this.state = state;
-  }
-  get textContent() {
-    return {
-      working: "运行中",
-      pending: "等待中",
-      completed: "已完成",
-      failed: "失败"
-    }[this.state] || "";
-  }
-  matches(selector) {
-    return selector === ".status-success" && this.state === "working"
-      || selector === ".status-warning" && this.state === "pending"
-      || selector === ".status-error" && this.state === "failed";
-  }
-  querySelector() {
-    return null;
-  }
-}
-
 class FakeCard extends FakeHTMLElement {
-  constructor(state) {
+  constructor(id, state, layout = "standalone") {
     super();
-    this.status = new FakeStatusNode(state);
-    this.children = [{}, this.status];
+    this.id = id;
+    this.state = state;
+    this.layout = layout;
+    // WorkBuddy 5.3.3 renders compact AgentCard with one direct header child.
+    this.children = [{}];
   }
-  get lastElementChild() {
-    return this.status;
+  closest(selector) {
+    if (selector !== "[data-conversation-id]") return null;
+    return {
+      getAttribute: (name) => name === "data-conversation-id" ? this.id : null
+    };
+  }
+  querySelector(selector) {
+    if (selector === '.status-error, [class*="_trailingStatus_"] path[fill="#F64041"]') {
+      return this.state === "failed" ? {} : null;
+    }
+    if (selector === ".status-success, .wb-icon--spin") {
+      return this.state === "working" ? {} : null;
+    }
+    if (selector === ".status-warning") {
+      return this.layout === "regular" && this.state === "pending" ? {} : null;
+    }
+    if (selector === ".status-completed") return null;
+    if (selector === ".status-secondary") return this.state === "archived" ? {} : null;
+    if (selector === '[class*="_status_"]') return null;
+    if (selector === '[class*="_trailingStatus_"]') {
+      return this.layout !== "regular" && ["working", "pending", "failed"].includes(this.state) ? {} : null;
+    }
+    return null;
   }
 }
 
@@ -103,21 +105,42 @@ vm.runInNewContext(script, {
 
 const api = fakeWindow.__QQ2008_TASK_SOUND__;
 assert.ok(api, "notification debug API should be exposed");
-const successCard = new FakeCard("working");
-const failureCard = new FakeCard("working");
+const successCard = new FakeCard("success-task", "working");
+const failureCard = new FakeCard("failure-task", "working");
 cards.push(successCard, failureCard);
 api.scan();
 assert.equal(audioInstances[0].playCount + audioInstances[1].playCount, 0, "initial scan must stay silent");
 
-successCard.status.state = "completed";
+successCard.state = "completed";
 api.scan();
 assert.equal(audioInstances.find((audio) => audio.src.endsWith("qq-message.wav")).playCount, 1);
 
 now += 2_000;
-failureCard.status.state = "failed";
+failureCard.state = "failed";
 api.scan();
 assert.equal(audioInstances.find((audio) => audio.src.endsWith("qq-failure.wav")).playCount, 1);
 
 api.scan();
 assert.equal(audioInstances.reduce((sum, audio) => sum + audio.playCount, 0), 2, "terminal state must not replay");
+
+now += 2_000;
+const replacementWorkingCard = new FakeCard("replacement-task", "working");
+cards.splice(0, cards.length, replacementWorkingCard);
+api.scan();
+cards[0] = new FakeCard("replacement-task", "completed");
+api.scan();
+assert.equal(
+  audioInstances.find((audio) => audio.src.endsWith("qq-message.wav")).playCount,
+  2,
+  "status history must survive a React card-node replacement"
+);
+
+now += 2_000;
+cards[0] = new FakeCard("already-completed-task", "completed");
+api.scan();
+assert.equal(
+  audioInstances.reduce((sum, audio) => sum + audio.playCount, 0),
+  3,
+  "a completed card first seen after rendering must stay silent"
+);
 console.log("QQ 2008 task sound transitions verified");

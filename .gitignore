@@ -1,0 +1,5 @@
+node_modules/
+.work/
+.DS_Store
+*.asar
+*.asar.unpacked/

@@ -1,0 +1,16 @@
+{
+  "name": "workbuddy-qq2008-skin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QQ 2008 inspired skin installer for WorkBuddy on macOS",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@electron/asar": "4.2.0"
+  },
+  "scripts": {
+    "verify": "node --check scripts/patch-theme.mjs && node --check scripts/install-theme.mjs && node --check scripts/restore-theme.mjs && node --check theme/qq2008-notify.js && node scripts/verify-notify.mjs"
+  }
+}

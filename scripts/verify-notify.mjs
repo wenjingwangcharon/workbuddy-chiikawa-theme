@@ -8,6 +8,7 @@ const script = fs.readFileSync(path.resolve("theme/qq2008-notify.js"), "utf8");
 let now = 10_000;
 const audioInstances = [];
 const cards = [];
+const questions = [];
 
 class FakeDate extends Date {
   static now() {
@@ -16,6 +17,8 @@ class FakeDate extends Date {
 }
 
 class FakeHTMLElement {}
+
+class FakeQuestion extends FakeHTMLElement {}
 
 class FakeCard extends FakeHTMLElement {
   constructor(id, state, layout = "standalone") {
@@ -68,6 +71,8 @@ class FakeAudio {
 }
 
 const localValues = new Map();
+// Simulate a pending question that was already on screen when the notifier loaded.
+questions.push(new FakeQuestion());
 const fakeWindow = {
   clearTimeout() {},
   setTimeout(callback) {
@@ -88,8 +93,10 @@ vm.runInNewContext(script, {
   document: {
     readyState: "complete",
     body: {},
-    querySelectorAll() {
-      return cards;
+    querySelectorAll(selector) {
+      if (selector === ".conversation-agent-card") return cards;
+      if (selector === ".ask-user-question--waiting") return questions;
+      return [];
     }
   },
   localStorage: {
@@ -105,6 +112,13 @@ vm.runInNewContext(script, {
 
 const api = fakeWindow.__QQ2008_TASK_SOUND__;
 assert.ok(api, "notification debug API should be exposed");
+assert.equal(
+  audioInstances.find((audio) => audio.src.endsWith("qq-failure.wav")).playCount,
+  0,
+  "a clarification question present on startup must stay silent"
+);
+questions.splice(0, questions.length);
+api.scan();
 const successCard = new FakeCard("success-task", "working");
 const failureCard = new FakeCard("failure-task", "working");
 cards.push(successCard, failureCard);
@@ -123,10 +137,14 @@ assert.equal(
 now += 2_000;
 failureCard.state = "failed";
 api.scan();
-assert.equal(audioInstances.find((audio) => audio.src.endsWith("qq-failure.wav")).playCount, 1);
+assert.equal(
+  audioInstances.find((audio) => audio.src.endsWith("qq-failure.wav")).playCount,
+  0,
+  "failed tasks must stay silent"
+);
 
 api.scan();
-assert.equal(audioInstances.reduce((sum, audio) => sum + audio.playCount, 0), 2, "terminal state must not replay");
+assert.equal(audioInstances.reduce((sum, audio) => sum + audio.playCount, 0), 1, "terminal state must not replay");
 
 now += 2_000;
 const replacementWorkingCard = new FakeCard("replacement-task", "working");
@@ -145,7 +163,34 @@ cards[0] = new FakeCard("already-completed-task", "completed");
 api.scan();
 assert.equal(
   audioInstances.reduce((sum, audio) => sum + audio.playCount, 0),
-  3,
+  2,
   "a completed card first seen after rendering must stay silent"
 );
-console.log("QQ 2008 task sound transitions verified");
+
+now += 2_000;
+questions.push(new FakeQuestion());
+api.scan();
+assert.equal(
+  audioInstances.find((audio) => audio.src.endsWith("qq-failure.wav")).playCount,
+  1,
+  "a newly displayed clarification question must play the cough sound"
+);
+
+api.scan();
+assert.equal(
+  audioInstances.find((audio) => audio.src.endsWith("qq-failure.wav")).playCount,
+  1,
+  "the same waiting question must not replay"
+);
+
+questions.splice(0, questions.length);
+api.scan();
+now += 2_000;
+questions.push(new FakeQuestion());
+api.scan();
+assert.equal(
+  audioInstances.find((audio) => audio.src.endsWith("qq-failure.wav")).playCount,
+  2,
+  "a later clarification question must play once again"
+);
+console.log("QQ 2008 completion and clarification sound transitions verified");

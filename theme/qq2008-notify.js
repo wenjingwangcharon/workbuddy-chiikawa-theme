@@ -2,18 +2,22 @@
   "use strict";
 
   const CARD_SELECTOR = ".conversation-agent-card";
+  const WAITING_QUESTION_SELECTOR = ".ask-user-question--waiting";
   const ENABLED_KEY = "WORKBUDDY_QQ2008_TASK_SOUND_ENABLED";
   const VOLUME_KEY = "WORKBUDDY_QQ2008_TASK_SOUND_VOLUME";
   const ACTIVE_STATES = new Set(["working", "pending"]);
   const TRAILING_STATUS_SELECTOR = '[class*="_trailingStatus_"]';
   const cardStates = new Map();
   const successAudio = new Audio("./assets/qq-message.wav");
-  const failureAudio = new Audio("./assets/qq-failure.wav");
+  // 保留旧文件名，避免升级时额外迁移资源；它现在用于 AI 澄清问题提示。
+  const questionAudio = new Audio("./assets/qq-failure.wav");
   let scanTimer = 0;
   let lastPlayedAt = 0;
+  let questionScanInitialized = false;
+  let questionWasWaiting = false;
 
   successAudio.preload = "auto";
-  failureAudio.preload = "auto";
+  questionAudio.preload = "auto";
 
   function isEnabled() {
     return localStorage.getItem(ENABLED_KEY) !== "false";
@@ -66,7 +70,7 @@
     if (now - lastPlayedAt < 1200) return;
     lastPlayedAt = now;
     stopAudio(successAudio);
-    stopAudio(failureAudio);
+    stopAudio(questionAudio);
     audio.volume = getVolume();
     audio.play().catch((error) => {
       console.warn("[QQ 2008 task sound] 播放失败，可能尚未获得音频播放权限。", error);
@@ -77,8 +81,22 @@
     play(successAudio);
   }
 
-  function playFailure() {
-    play(failureAudio);
+  function playQuestion() {
+    play(questionAudio);
+  }
+
+  function scanQuestionPrompt() {
+    const isWaiting = document.querySelectorAll(WAITING_QUESTION_SELECTOR).length > 0;
+
+    // 首次扫描只建立基线，避免安装或重启后为屏幕上已有的问题补播。
+    if (!questionScanInitialized) {
+      questionScanInitialized = true;
+      questionWasWaiting = isWaiting;
+      return;
+    }
+
+    if (isWaiting && !questionWasWaiting) playQuestion();
+    questionWasWaiting = isWaiting;
   }
 
   function scan() {
@@ -91,11 +109,11 @@
       cardStates.set(key, current);
       if (!previous || previous === current || !ACTIVE_STATES.has(previous)) continue;
       if (current === "completed") playSuccess();
-      else if (current === "failed") playFailure();
     }
     for (const key of cardStates.keys()) {
       if (!seenKeys.has(key)) cardStates.delete(key);
     }
+    scanQuestionPrompt();
   }
 
   function scheduleScan() {
@@ -116,7 +134,7 @@
     window.setInterval(scan, 1500);
     window.__QQ2008_TASK_SOUND__ = {
       playSuccess,
-      playFailure,
+      playQuestion,
       readState,
       scan,
       setEnabled(enabled) {

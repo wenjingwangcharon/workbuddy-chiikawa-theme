@@ -1,6 +1,6 @@
 # WorkBuddy QQ 2008 皮肤
 
-面向 macOS WorkBuddy 的 QQ 2008 风格皮肤。包含玻璃蓝顶栏、立体按钮、紧凑任务列表、Tahoma 风格字体、聊天框右上角企鹅、随 WorkBuddy 外观设置自动切换的深色模式，以及复古任务提示音：成功时播放“滴滴滴”，失败或终止时播放“咳嗽”。
+面向 macOS WorkBuddy 的 QQ 2008 风格皮肤。包含玻璃蓝顶栏、立体按钮、紧凑任务列表、Tahoma 风格字体、聊天框右上角企鹅、随 WorkBuddy 外观设置自动切换的深色模式，以及复古提示音：任务完成时播放“滴滴滴”，AI 发出选择题澄清意图时播放“咳嗽”。
 
 CNB 司内公开仓库：`https://cnb.woa.com/runcao/workbuddy-qq2008-theme`
 
@@ -32,11 +32,11 @@ cd workbuddy-qq2008-theme
 
 安装后用 `Command + Q` 完全退出 WorkBuddy，再重新打开。
 
-## 任务提示音
+## 复古提示音
 
 - 任务从运行中变为完成：播放“滴滴滴”。
-- 任务从运行中变为失败、错误或终止：播放“咳嗽”。
-- 启动时只记录现有任务状态，不会为历史任务补播提示音。
+- AI 在对话中发出待回答的选择题：播放一次“咳嗽”。
+- 失败、错误或终止的任务保持安静；启动时只记录现有状态，不会为历史内容补播提示音。
 
 如需临时关闭或调整音量，可在 WorkBuddy 开发者工具控制台执行：
 
@@ -72,13 +72,13 @@ WorkBuddy 更新通常会覆盖 `app.asar`，皮肤会失效。不要恢复旧�
 
 - `theme/qq2008-skin.css`：主题样式
 - `theme/qq-penguin-user.png`：企鹅图片
-- `theme/qq2008-notify.js`：监听任务状态并播放对应提示音
+- `theme/qq2008-notify.js`：监听任务完成与 AI 选择题状态并播放对应提示音
 - `theme/qq-message.wav`：任务成功时的“滴滴滴”
-- `theme/qq-failure.wav`：任务失败或终止时的“咳嗽”
+- `theme/qq-failure.wav`：AI 发出选择题澄清意图时的“咳嗽”（为兼容旧安装保留文件名）
 - `scripts/patch-theme.mjs`：在副本上构建并校验补丁
 - `scripts/install-theme.mjs`：备份和原子安装
 - `scripts/restore-theme.mjs`：从指定备份恢复
-- `scripts/verify-notify.mjs`：验证完成/失败状态转换不会漏播或重复播放
+- `scripts/verify-notify.mjs`：验证任务完成与选择题提示不会漏播或重复播放
 - `install.sh`：macOS 安装入口
 - `restore.sh`：macOS 恢复入口
 

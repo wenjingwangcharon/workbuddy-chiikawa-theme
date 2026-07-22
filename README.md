@@ -2,7 +2,7 @@
 
 面向 macOS WorkBuddy 的 QQ 2008 风格皮肤。包含玻璃蓝顶栏、立体按钮、紧凑任务列表、Tahoma 风格字体、聊天框右上角企鹅、随 WorkBuddy 外观设置自动切换的深色模式，以及复古提示音：任务完成时播放“滴滴滴”，AI 发出选择题澄清意图时播放“咳嗽”。
 
-CNB 司内公开仓库：`https://cnb.woa.com/runcao/workbuddy-qq2008-theme`
+GitHub：`https://github.com/justtobeliev1/workbuddy-qq2008-theme`
 
 当前已验证版本：WorkBuddy 5.3.3。
 
@@ -10,7 +10,7 @@ CNB 司内公开仓库：`https://cnb.woa.com/runcao/workbuddy-qq2008-theme`
 
 把下面这句话发给 WorkBuddy Agent：
 
-> 请克隆 `https://cnb.woa.com/runcao/workbuddy-qq2008-theme.git`，先阅读 `AGENT_INSTALL.md` 并审查安装脚本，然后为当前 macOS WorkBuddy 安装 QQ 2008 皮肤，完成备份和校验后告诉我重启方式与恢复路径。
+> 请克隆 `https://github.com/justtobeliev1/workbuddy-qq2008-theme.git`，先阅读 `AGENT_INSTALL.md` 并审查安装脚本，然后为当前 macOS WorkBuddy 安装 QQ 2008 皮肤，完成备份和校验后告诉我重启方式与恢复路径。
 
 Agent 会检查系统和 WorkBuddy 版本、安装本地依赖、基于当前版本重新构建 `app.asar`、备份原版并安装皮肤。
 
@@ -25,7 +25,7 @@ Agent 会检查系统和 WorkBuddy 版本、安装本地依赖、基于当前版
 执行：
 
 ```bash
-git clone https://cnb.woa.com/runcao/workbuddy-qq2008-theme.git
+git clone https://github.com/justtobeliev1/workbuddy-qq2008-theme.git
 cd workbuddy-qq2008-theme
 ./install.sh
 ```
@@ -84,6 +84,6 @@ WorkBuddy 更新通常会覆盖 `app.asar`，皮肤会失效。不要恢复旧�
 
 ## 使用边界
 
-这是内部个人定制项目，不是 WorkBuddy 官方主题。修改应用资源可能影响代码签名，并会在版本更新后被覆盖。
+这是个人开发者制作的非官方主题。修改应用资源可能影响代码签名，并会在版本更新后被覆盖。
 
-企鹅图片及 QQ 相关视觉元素涉及腾讯品牌资产，本仓库仅用于腾讯内部、个人非商业界面定制，不代表官方背书。详见 `NOTICE.md`。
+企鹅图片及 QQ 相关视觉元素的相关权利归其权利人所有，本仓库仅用于个人、非商业的界面定制，不代表 WorkBuddy、QQ 或腾讯的官方立场与背书。详见 `NOTICE.md`。

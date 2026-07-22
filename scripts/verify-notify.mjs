@@ -114,6 +114,11 @@ assert.equal(audioInstances[0].playCount + audioInstances[1].playCount, 0, "init
 successCard.state = "completed";
 api.scan();
 assert.equal(audioInstances.find((audio) => audio.src.endsWith("qq-message.wav")).playCount, 1);
+assert.equal(
+  audioInstances.find((audio) => audio.src.endsWith("qq-message.wav")).volume,
+  0.8,
+  "missing volume preference must use the audible default instead of coercing null to zero"
+);
 
 now += 2_000;
 failureCard.state = "failed";

@@ -20,7 +20,9 @@
   }
 
   function getVolume() {
-    const stored = Number(localStorage.getItem(VOLUME_KEY));
+    const raw = localStorage.getItem(VOLUME_KEY);
+    if (raw === null) return 0.8;
+    const stored = Number(raw);
     return Number.isFinite(stored) && stored >= 0 && stored <= 1 ? stored : 0.8;
   }
 

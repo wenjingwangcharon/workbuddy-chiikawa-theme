@@ -11,6 +11,6 @@
     "@electron/asar": "4.2.0"
   },
   "scripts": {
-    "verify": "node --check scripts/patch-theme.mjs && node --check scripts/install-theme.mjs && node --check scripts/restore-theme.mjs"
+    "verify": "node --check scripts/patch-theme.mjs && node --check scripts/install-theme.mjs && node --check scripts/restore-theme.mjs && node --check theme/qq2008-notify.js && node scripts/verify-notify.mjs"
   }
 }

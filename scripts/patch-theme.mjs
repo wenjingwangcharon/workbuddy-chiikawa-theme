@@ -16,6 +16,7 @@ const repoDir = path.resolve(scriptDir, "..");
 const source = path.resolve(getArg("--source", "/Applications/WorkBuddy.app/Contents/Resources/app.asar"));
 const output = path.resolve(getArg("--output", path.join(repoDir, ".work", "app.qq2008.asar")));
 const skin = path.resolve(getArg("--skin", path.join(repoDir, "theme", "qq2008-skin.css")));
+const scripts = getArgs("--script").map((script) => path.resolve(script));
 const extraAssets = getArgs("--asset").map((asset) => path.resolve(asset));
 const work = path.resolve(getArg("--work", path.join(os.tmpdir(), `workbuddy-qq2008-${process.pid}`)));
 const sourceUnpacked = `${source}.unpacked`;
@@ -25,7 +26,7 @@ if (source === output) {
 }
 if (!fs.existsSync(source)) throw new Error(`找不到源文件：${source}`);
 if (!fs.existsSync(skin)) throw new Error(`找不到皮肤文件：${skin}`);
-for (const asset of extraAssets) {
+for (const asset of [...scripts, ...extraAssets]) {
   if (!fs.existsSync(asset)) throw new Error(`找不到附加资源：${asset}`);
 }
 
@@ -61,10 +62,16 @@ function enumerate(header) {
 }
 
 function patchHtml(html) {
-  const marker = "qq2008-skin.css";
-  if (html.includes(marker)) return html;
+  const tags = [];
+  const skinMarker = path.basename(skin);
+  if (!html.includes(skinMarker)) tags.push(`  <link rel="stylesheet" href="./assets/${skinMarker}">`);
+  for (const script of scripts) {
+    const marker = path.basename(script);
+    if (!html.includes(marker)) tags.push(`  <script defer src="./assets/${marker}"></script>`);
+  }
+  if (tags.length === 0) return html;
   if (!html.includes("</head>")) throw new Error("renderer/index.html 中未找到 </head>");
-  return html.replace("</head>", `  <link rel="stylesheet" href="./assets/${marker}">\n</head>`);
+  return html.replace("</head>", `${tags.join("\n")}\n</head>`);
 }
 
 const asar = await loadAsar();
@@ -108,7 +115,7 @@ if (!htmlEntry) throw new Error("未找到 renderer/index.html，当前版本结
 const htmlPath = path.join(work, htmlEntry.rel);
 fs.writeFileSync(htmlPath, patchHtml(fs.readFileSync(htmlPath, "utf8")));
 
-const injectedAssets = [skin, ...extraAssets];
+const injectedAssets = [skin, ...scripts, ...extraAssets];
 const injectedAssetRels = [];
 for (const injectedAsset of injectedAssets) {
   const assetRel = path.join(path.dirname(htmlEntry.rel), "assets", path.basename(injectedAsset));
@@ -152,6 +159,9 @@ for (const assetRel of injectedAssetRels) {
 }
 const patchedHtml = asar.extractFile(output, htmlEntry.rel).toString("utf8");
 if (!patchedHtml.includes("qq2008-skin.css")) throw new Error("校验失败：HTML 未注入皮肤链接");
+for (const script of scripts) {
+  if (!patchedHtml.includes(path.basename(script))) throw new Error(`校验失败：HTML 未注入脚本 ${path.basename(script)}`);
+}
 
 console.log(JSON.stringify({
   source,
@@ -160,6 +170,7 @@ console.log(JSON.stringify({
   entries: entries.length,
   skippedMissing,
   skinInjected: true,
+  scriptsInjected: scripts.map((script) => path.basename(script)),
   assetsInjected: injectedAssetRels.map((assetRel) => path.basename(assetRel)),
   outputBytes: fs.statSync(output).size
 }, null, 2));

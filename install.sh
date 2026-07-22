@@ -5,6 +5,9 @@ REPO_DIR="${0:A:h}"
 APP_ASAR="/Applications/WorkBuddy.app/Contents/Resources/app.asar"
 SKIN="$REPO_DIR/theme/qq2008-skin.css"
 PENGUIN="$REPO_DIR/theme/qq-penguin-user.png"
+NOTIFY_SCRIPT="$REPO_DIR/theme/qq2008-notify.js"
+MESSAGE_SOUND="$REPO_DIR/theme/qq-message.wav"
+FAILURE_SOUND="$REPO_DIR/theme/qq-failure.wav"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   print -u2 "仅支持 macOS。"
@@ -64,7 +67,10 @@ mkdir -p "$RUN_DIR"
   --source "$APP_ASAR" \
   --output "$PATCHED" \
   --skin "$SKIN" \
+  --script "$NOTIFY_SCRIPT" \
   --asset "$PENGUIN" \
+  --asset "$MESSAGE_SOUND" \
+  --asset "$FAILURE_SOUND" \
   --work "$EXTRACT"
 
 "$NODE_BIN" "$REPO_DIR/scripts/install-theme.mjs" \

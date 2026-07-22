@@ -1,6 +1,6 @@
 # WorkBuddy QQ 2008 皮肤
 
-面向 macOS WorkBuddy 的 QQ 2008 风格皮肤。包含玻璃蓝顶栏、立体按钮、紧凑任务列表、Tahoma 风格字体、聊天框右上角企鹅，以及随 WorkBuddy 外观设置自动切换的深色模式。
+面向 macOS WorkBuddy 的 QQ 2008 风格皮肤。包含玻璃蓝顶栏、立体按钮、紧凑任务列表、Tahoma 风格字体、聊天框右上角企鹅、随 WorkBuddy 外观设置自动切换的深色模式，以及复古任务提示音：成功时播放“滴滴滴”，失败或终止时播放“咳嗽”。
 
 CNB 司内公开仓库：`https://cnb.woa.com/runcao/workbuddy-qq2008-theme`
 
@@ -32,12 +32,27 @@ cd workbuddy-qq2008-theme
 
 安装后用 `Command + Q` 完全退出 WorkBuddy，再重新打开。
 
+## 任务提示音
+
+- 任务从运行中变为完成：播放“滴滴滴”。
+- 任务从运行中变为失败、错误或终止：播放“咳嗽”。
+- 启动时只记录现有任务状态，不会为历史任务补播提示音。
+
+如需临时关闭或调整音量，可在 WorkBuddy 开发者工具控制台执行：
+
+```js
+window.__QQ2008_TASK_SOUND__.setEnabled(false)
+window.__QQ2008_TASK_SOUND__.setVolume(0.5)
+```
+
+音量范围为 `0` 到 `1`；重新启用时传入 `true`。
+
 ## 安全与回滚
 
 安装过程不会直接修改原包内容。它会：
 
 1. 从当前 WorkBuddy 的 `app.asar` 构建一个补丁副本。
-2. 校验 HTML、CSS 和企鹅图片均已写入。
+2. 校验 HTML、CSS、提示音脚本、两段 WAV 音效和企鹅图片均已写入。
 3. 把当前原版备份到 `~/.workbuddy/backups/workbuddy-qq2008/<时间>/app.asar`。
 4. 校验备份 SHA-256 后，通过同目录临时文件原子替换。
 
@@ -57,9 +72,13 @@ WorkBuddy 更新通常会覆盖 `app.asar`，皮肤会失效。不要恢复旧�
 
 - `theme/qq2008-skin.css`：主题样式
 - `theme/qq-penguin-user.png`：企鹅图片
+- `theme/qq2008-notify.js`：监听任务状态并播放对应提示音
+- `theme/qq-message.wav`：任务成功时的“滴滴滴”
+- `theme/qq-failure.wav`：任务失败或终止时的“咳嗽”
 - `scripts/patch-theme.mjs`：在副本上构建并校验补丁
 - `scripts/install-theme.mjs`：备份和原子安装
 - `scripts/restore-theme.mjs`：从指定备份恢复
+- `scripts/verify-notify.mjs`：验证完成/失败状态转换不会漏播或重复播放
 - `install.sh`：macOS 安装入口
 - `restore.sh`：macOS 恢复入口
 

@@ -3,7 +3,11 @@
 
   const CARD_SELECTOR = ".conversation-agent-card";
   const WAITING_QUESTION_SELECTOR = ".ask-user-question--waiting";
-  const ENABLED_KEY = "WORKBUDDY_QQ2008_TASK_SOUND_ENABLED";
+  const SKIN_LINK_SELECTOR = 'link[href$="qq2008-skin.css"]';
+  const TOGGLE_HOST_SELECTOR = ".conversation-list-logo-row";
+  const TOGGLE_BUTTON_ID = "qq2008-skin-toggle";
+  const SKIN_ENABLED_KEY = "WORKBUDDY_QQ2008_SKIN_ENABLED";
+  const SOUND_ENABLED_KEY = "WORKBUDDY_QQ2008_TASK_SOUND_ENABLED";
   const VOLUME_KEY = "WORKBUDDY_QQ2008_TASK_SOUND_VOLUME";
   const ACTIVE_STATES = new Set(["working", "pending"]);
   const TRAILING_STATUS_SELECTOR = '[class*="_trailingStatus_"]';
@@ -19,8 +23,12 @@
   successAudio.preload = "auto";
   questionAudio.preload = "auto";
 
-  function isEnabled() {
-    return localStorage.getItem(ENABLED_KEY) !== "false";
+  function isSkinEnabled() {
+    return localStorage.getItem(SKIN_ENABLED_KEY) !== "false";
+  }
+
+  function isSoundEnabled() {
+    return isSkinEnabled() && localStorage.getItem(SOUND_ENABLED_KEY) !== "false";
   }
 
   function getVolume() {
@@ -65,7 +73,7 @@
   }
 
   function play(audio) {
-    if (!isEnabled()) return;
+    if (!isSoundEnabled()) return;
     const now = Date.now();
     if (now - lastPlayedAt < 1200) return;
     lastPlayedAt = now;
@@ -83,6 +91,65 @@
 
   function playQuestion() {
     play(questionAudio);
+  }
+
+  function styleToggleButton(button, enabled) {
+    Object.assign(button.style, {
+      marginLeft: "auto",
+      flex: "0 0 auto",
+      minWidth: "56px",
+      height: "26px",
+      padding: "0 8px",
+      border: enabled ? "1px solid #2d73a8" : "1px solid #9aa6ad",
+      borderRadius: "6px",
+      background: enabled
+        ? "linear-gradient(180deg, #f7fcff 0%, #a9d8f2 48%, #71b7df 52%, #d8f1ff 100%)"
+        : "linear-gradient(180deg, #ffffff 0%, #e8ecef 100%)",
+      color: enabled ? "#154f78" : "#33434d",
+      boxShadow: enabled ? "inset 0 1px #ffffff, 0 1px 2px rgba(30, 83, 120, .2)" : "0 1px 2px rgba(0, 0, 0, .12)",
+      font: '12px Tahoma, "PingFang SC", sans-serif',
+      lineHeight: "24px",
+      whiteSpace: "nowrap",
+      cursor: "pointer"
+    });
+    button.textContent = enabled ? "原版" : "QQ 2008";
+    button.title = enabled ? "切换到 WorkBuddy 原版皮肤" : "切换到 QQ 2008 皮肤";
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-pressed", String(enabled));
+  }
+
+  function applySkinPreference() {
+    const enabled = isSkinEnabled();
+    const stylesheet = document.querySelector(SKIN_LINK_SELECTOR);
+    if (stylesheet) {
+      stylesheet.disabled = !enabled;
+      stylesheet.media = enabled ? "all" : "not all";
+    }
+    const button = document.getElementById(TOGGLE_BUTTON_ID);
+    if (button) styleToggleButton(button, enabled);
+    return enabled;
+  }
+
+  function setSkinEnabled(enabled) {
+    localStorage.setItem(SKIN_ENABLED_KEY, String(Boolean(enabled)));
+    applySkinPreference();
+  }
+
+  function ensureToggleButton() {
+    const existing = document.getElementById(TOGGLE_BUTTON_ID);
+    if (existing) {
+      styleToggleButton(existing, isSkinEnabled());
+      return existing;
+    }
+    const host = document.querySelector(TOGGLE_HOST_SELECTOR);
+    if (!host) return null;
+    const button = document.createElement("button");
+    button.id = TOGGLE_BUTTON_ID;
+    button.type = "button";
+    styleToggleButton(button, isSkinEnabled());
+    button.addEventListener("click", () => setSkinEnabled(!isSkinEnabled()));
+    host.appendChild(button);
+    return button;
   }
 
   function scanQuestionPrompt() {
@@ -114,6 +181,7 @@
       if (!seenKeys.has(key)) cardStates.delete(key);
     }
     scanQuestionPrompt();
+    ensureToggleButton();
   }
 
   function scheduleScan() {
@@ -122,6 +190,7 @@
   }
 
   function start() {
+    applySkinPreference();
     scan();
     const observer = new MutationObserver(scheduleScan);
     observer.observe(document.body, {
@@ -138,11 +207,18 @@
       readState,
       scan,
       setEnabled(enabled) {
-        localStorage.setItem(ENABLED_KEY, String(Boolean(enabled)));
+        localStorage.setItem(SOUND_ENABLED_KEY, String(Boolean(enabled)));
       },
       setVolume(volume) {
         const normalized = Math.min(1, Math.max(0, Number(volume) || 0));
         localStorage.setItem(VOLUME_KEY, String(normalized));
+      }
+    };
+    window.__QQ2008_SKIN__ = {
+      isEnabled: isSkinEnabled,
+      setEnabled: setSkinEnabled,
+      toggle() {
+        setSkinEnabled(!isSkinEnabled());
       }
     };
   }

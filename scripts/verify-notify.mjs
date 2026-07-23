@@ -20,6 +20,25 @@ class FakeHTMLElement {}
 
 class FakeQuestion extends FakeHTMLElement {}
 
+class FakeButton extends FakeHTMLElement {
+  constructor() {
+    super();
+    this.style = {};
+    this.attributes = new Map();
+    this.listeners = new Map();
+    this.textContent = "";
+  }
+  setAttribute(name, value) {
+    this.attributes.set(name, value);
+  }
+  addEventListener(name, callback) {
+    this.listeners.set(name, callback);
+  }
+  click() {
+    this.listeners.get("click")?.();
+  }
+}
+
 class FakeCard extends FakeHTMLElement {
   constructor(id, state, layout = "standalone") {
     super();
@@ -73,6 +92,13 @@ class FakeAudio {
 const localValues = new Map();
 // Simulate a pending question that was already on screen when the notifier loaded.
 questions.push(new FakeQuestion());
+const skinLink = { disabled: false, media: "all" };
+let toggleButton = null;
+const toggleHost = {
+  appendChild(button) {
+    toggleButton = button;
+  }
+};
 const fakeWindow = {
   clearTimeout() {},
   setTimeout(callback) {
@@ -93,6 +119,18 @@ vm.runInNewContext(script, {
   document: {
     readyState: "complete",
     body: {},
+    querySelector(selector) {
+      if (selector === 'link[href$="qq2008-skin.css"]') return skinLink;
+      if (selector === ".conversation-list-logo-row") return toggleHost;
+      return null;
+    },
+    getElementById(id) {
+      return id === "qq2008-skin-toggle" ? toggleButton : null;
+    },
+    createElement(tagName) {
+      assert.equal(tagName, "button");
+      return new FakeButton();
+    },
     querySelectorAll(selector) {
       if (selector === ".conversation-agent-card") return cards;
       if (selector === ".ask-user-question--waiting") return questions;
@@ -112,6 +150,28 @@ vm.runInNewContext(script, {
 
 const api = fakeWindow.__QQ2008_TASK_SOUND__;
 assert.ok(api, "notification debug API should be exposed");
+const skinApi = fakeWindow.__QQ2008_SKIN__;
+assert.ok(skinApi, "skin toggle API should be exposed");
+assert.equal(skinApi.isEnabled(), true, "skin must be enabled by default");
+assert.equal(skinLink.disabled, false);
+assert.equal(toggleButton?.textContent, "原版", "enabled skin must offer the original-theme action");
+
+toggleButton.click();
+assert.equal(skinApi.isEnabled(), false);
+assert.equal(skinLink.disabled, true, "switching to the original theme must disable the skin stylesheet");
+assert.equal(skinLink.media, "not all");
+assert.equal(toggleButton.textContent, "QQ 2008", "original theme must offer the QQ 2008 action");
+api.playSuccess();
+assert.equal(
+  audioInstances.reduce((sum, audio) => sum + audio.playCount, 0),
+  0,
+  "original theme mode must also silence QQ sounds"
+);
+
+toggleButton.click();
+assert.equal(skinApi.isEnabled(), true);
+assert.equal(skinLink.disabled, false);
+assert.equal(skinLink.media, "all");
 assert.equal(
   audioInstances.find((audio) => audio.src.endsWith("qq-failure.wav")).playCount,
   0,

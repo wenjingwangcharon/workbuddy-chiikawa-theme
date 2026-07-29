@@ -110,6 +110,30 @@ for (const entry of entries) {
   }
 }
 
+const compatibilityMarkers = [
+  "conversation-list-logo-row",
+  "user-menu-trigger--workbuddy",
+  "wb-scene-tabs",
+  "wb-home-composer__input-slot",
+  "topRightSlotStandalone",
+  "conversation-agent-card",
+  "ask-user-question--waiting"
+];
+const missingMarkers = new Set(compatibilityMarkers);
+for (const entry of entries) {
+  if (missingMarkers.size === 0) break;
+  if (entry.type !== "file" || !/^renderer[/\\]assets[/\\].*\.(?:js|css)$/.test(entry.rel)) continue;
+  const file = path.join(work, entry.rel);
+  if (!fs.existsSync(file)) continue;
+  const content = fs.readFileSync(file, "utf8");
+  for (const marker of missingMarkers) {
+    if (content.includes(marker)) missingMarkers.delete(marker);
+  }
+}
+if (missingMarkers.size > 0) {
+  throw new Error(`当前 WorkBuddy 版本缺少关键界面标记：${[...missingMarkers].join(", ")}。已停止构建，请先适配新版本。`);
+}
+
 const htmlEntry = entries.find((entry) => entry.type === "file" && /(^|[/\\])renderer[/\\]index\.html$/.test(entry.rel));
 if (!htmlEntry) throw new Error("未找到 renderer/index.html，当前版本结构可能已变化。");
 const htmlPath = path.join(work, htmlEntry.rel);
@@ -169,6 +193,7 @@ console.log(JSON.stringify({
   html: htmlEntry.rel,
   entries: entries.length,
   skippedMissing,
+  compatibilityMarkers,
   skinInjected: true,
   scriptsInjected: scripts.map((script) => path.basename(script)),
   assetsInjected: injectedAssetRels.map((assetRel) => path.basename(assetRel)),

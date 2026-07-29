@@ -4,7 +4,9 @@
 
 CNB：`https://cnb.woa.com/runcao/workbuddy-qq2008-theme`
 
-当前已验证版本：WorkBuddy 5.3.3。
+GitHub 镜像：`https://github.com/justtobeliev1/workbuddy-qq2008-theme`
+
+当前已验证版本：WorkBuddy 5.3.7。
 
 ## 给 WorkBuddy Agent 的一句话
 

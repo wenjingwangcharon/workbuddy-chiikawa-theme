@@ -11,6 +11,8 @@
    - `wb-scene-tabs`
    - `wb-home-composer__input-slot`
    - `topRightSlotStandalone`
+   - `conversation-agent-card`
+   - `ask-user-question--waiting`
 5. 如果选择器缺失，停止安装并向用户报告兼容性风险。
 6. 如果选择器兼容，执行 `./install.sh`。WorkBuddy 正在运行时允许原子替换，但必须提醒用户安装后用 `Command + Q` 完全退出并重新打开。
 7. 安装后从目标 `app.asar` 验证：

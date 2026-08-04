@@ -261,14 +261,14 @@ a:hover, button[class*="link"]:hover {
 .wb-home-composer__input-slot::after {
   content: "";
   position: absolute;
-  top: -140px;
+  top: -170px;
   right: 8px;
   width: 100px;
-  height: 140px;
+  height: 170px;
   background-image: url("./chiikawa-group.png");
   background-size: contain;
   background-repeat: no-repeat;
-  background-position: top right;
+  background-position: bottom right;
   z-index: 50;
   pointer-events: none;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.18));

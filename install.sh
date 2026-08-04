@@ -3,11 +3,17 @@ set -euo pipefail
 
 REPO_DIR="${0:A:h}"
 APP_ASAR="/Applications/WorkBuddy.app/Contents/Resources/app.asar"
-SKIN="$REPO_DIR/theme/qq2008-skin.css"
-PENGUIN="$REPO_DIR/theme/qq-penguin-user.png"
-NOTIFY_SCRIPT="$REPO_DIR/theme/qq2008-notify.js"
-MESSAGE_SOUND="$REPO_DIR/theme/qq-message.wav"
-FAILURE_SOUND="$REPO_DIR/theme/qq-failure.wav"
+SKIN="$REPO_DIR/theme/chiikawa-skin.css"
+
+ASSETS=(
+  "$REPO_DIR/theme/usagi-logo.png"
+  "$REPO_DIR/theme/chiikawa-group.png"
+  "$REPO_DIR/theme/chiichi-serious.png"
+  "$REPO_DIR/theme/chiichi-playful.png"
+  "$REPO_DIR/theme/momonga.png"
+  "$REPO_DIR/theme/kuri-manju.png"
+  "$REPO_DIR/theme/stack.png"
+)
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   print -u2 "仅支持 macOS。"
@@ -59,18 +65,20 @@ fi
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN_DIR="$REPO_DIR/.work/run-$STAMP"
-PATCHED="$RUN_DIR/app.qq2008.asar"
+PATCHED="$RUN_DIR/app.chiikawa.asar"
 EXTRACT="$RUN_DIR/extract"
 mkdir -p "$RUN_DIR"
+
+ASSET_ARGS=()
+for asset in "${ASSETS[@]}"; do
+  ASSET_ARGS+=(--asset "$asset")
+done
 
 "$NODE_BIN" "$REPO_DIR/scripts/patch-theme.mjs" \
   --source "$APP_ASAR" \
   --output "$PATCHED" \
   --skin "$SKIN" \
-  --script "$NOTIFY_SCRIPT" \
-  --asset "$PENGUIN" \
-  --asset "$MESSAGE_SOUND" \
-  --asset "$FAILURE_SOUND" \
+  "${ASSET_ARGS[@]}" \
   --work "$EXTRACT"
 
 "$NODE_BIN" "$REPO_DIR/scripts/install-theme.mjs" \
@@ -79,5 +87,5 @@ mkdir -p "$RUN_DIR"
   --allow-running
 
 print ""
-print "安装完成。请用 Command + Q 完全退出 WorkBuddy，再重新打开。"
-print "原版已备份到 ~/.workbuddy/backups/workbuddy-qq2008/ 下。"
+print "Chiikawa 皮肤安装完成。请用 Command + Q 完全退出 WorkBuddy，再重新打开。"
+print "原版已备份到 ~/.workbuddy/backups/workbuddy-chiikawa/ 下。"

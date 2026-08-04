@@ -14,11 +14,11 @@ const getArgs = (name) => args.flatMap((arg, index) => arg === name && args[inde
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const repoDir = path.resolve(scriptDir, "..");
 const source = path.resolve(getArg("--source", "/Applications/WorkBuddy.app/Contents/Resources/app.asar"));
-const output = path.resolve(getArg("--output", path.join(repoDir, ".work", "app.qq2008.asar")));
-const skin = path.resolve(getArg("--skin", path.join(repoDir, "theme", "qq2008-skin.css")));
+const output = path.resolve(getArg("--output", path.join(repoDir, ".work", "app.chiikawa.asar")));
+const skin = path.resolve(getArg("--skin", path.join(repoDir, "theme", "chiikawa-skin.css")));
 const scripts = getArgs("--script").map((script) => path.resolve(script));
 const extraAssets = getArgs("--asset").map((asset) => path.resolve(asset));
-const work = path.resolve(getArg("--work", path.join(os.tmpdir(), `workbuddy-qq2008-${process.pid}`)));
+const work = path.resolve(getArg("--work", path.join(os.tmpdir(), `workbuddy-chiikawa-${process.pid}`)));
 const sourceUnpacked = `${source}.unpacked`;
 
 if (source === output) {
@@ -182,7 +182,7 @@ for (const assetRel of injectedAssetRels) {
   if (!listed.includes(normalizedAssetRel)) throw new Error(`校验失败：补丁包中缺少 ${path.basename(assetRel)}`);
 }
 const patchedHtml = asar.extractFile(output, htmlEntry.rel).toString("utf8");
-if (!patchedHtml.includes("qq2008-skin.css")) throw new Error("校验失败：HTML 未注入皮肤链接");
+if (!patchedHtml.includes("chiikawa-skin.css")) throw new Error("校验失败：HTML 未注入皮肤链接");
 for (const script of scripts) {
   if (!patchedHtml.includes(path.basename(script))) throw new Error(`校验失败：HTML 未注入脚本 ${path.basename(script)}`);
 }

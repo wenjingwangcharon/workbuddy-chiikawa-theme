@@ -7,7 +7,7 @@ BACKUP="${1:-}"
 
 if [[ -z "$BACKUP" ]]; then
   print -u2 "用法：./restore.sh /完整路径/到/backup/app.asar"
-  print -u2 "备份位于 ~/.workbuddy/backups/workbuddy-qq2008/ 下。"
+  print -u2 "备份位于 ~/.workbuddy/backups/workbuddy-chiikawa/ 下。"
   exit 1
 fi
 

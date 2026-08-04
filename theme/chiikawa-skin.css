@@ -1,0 +1,322 @@
+/* ===== Chiikawa V2 Skin ===== */
+
+:root,
+body.light {
+  --chiikawa-pink: #F0C0CB;
+  --chiikawa-yellow-light: #FFF8E1;
+  --chiikawa-yellow: #FFF1C0;
+  --chiikawa-blue-light: #89CFF0;
+  --chiikawa-blue: #7BC0E3;
+  --chiikawa-text: #3D2C30;
+  --chiikawa-warm-white: #FFFAF0;
+  --chiikawa-blush: #F9A8D4;
+
+  --vscode-editor-background: var(--chiikawa-yellow-light) !important;
+  --vscode-sideBar-background: var(--chiikawa-yellow-light) !important;
+  --vscode-editor-foreground: var(--chiikawa-text) !important;
+  --vscode-foreground: var(--chiikawa-text) !important;
+  --vscode-panel-background: var(--chiikawa-yellow-light) !important;
+  --vscode-input-background: #FFFFFF !important;
+  --vscode-input-border: var(--chiikawa-blue) !important;
+  --vscode-focusBorder: var(--chiikawa-blue) !important;
+  --vscode-button-background: var(--chiikawa-blue) !important;
+  --vscode-button-foreground: var(--chiikawa-text) !important;
+  --vscode-button-hoverBackground: var(--chiikawa-blush) !important;
+  --vscode-list-activeSelectionBackground: #FFF1C0 !important;
+  --vscode-list-activeSelectionForeground: var(--chiikawa-text) !important;
+  --vscode-list-hoverBackground: var(--chiikawa-yellow) !important;
+  --vscode-dropdown-background: #FFFFFF !important;
+
+  --wb-bg-primary: var(--chiikawa-yellow-light) !important;
+  --wb-bg-secondary: #FFFDF5 !important;
+  --wb-bg-tertiary: #FFF3D0 !important;
+  --wb-bg-hover: #FFF1C0 !important;
+  --wb-bg-active: #FFEAA0 !important;
+  --wb-sidebar-bg: var(--chiikawa-yellow-light) !important;
+  --wb-bg-card-strong: #FFFFFF !important;
+  --wb-bg-pill-hover: #FFF1C0 !important;
+  --wb-bg-pill-active: var(--chiikawa-blue) !important;
+  --wb-bg-pill-active-hover: #69B0D3 !important;
+  --wb-control-selected-bg: var(--chiikawa-blue) !important;
+  --wb-control-selected-bg-hover: #69B0D3 !important;
+  --wb-button-primary-bg: var(--chiikawa-blue) !important;
+  --wb-button-primary-bg-hover: var(--chiikawa-blush) !important;
+  --wb-button-primary-bg-active: #E890C0 !important;
+  --wb-quick-action-arrow-bg: #FFFDF5 !important;
+  --wb-quick-action-selected-bg: var(--chiikawa-blue) !important;
+  --wb-quick-action-selected-fg: var(--chiikawa-text) !important;
+  --wb-quick-action-item-bg-hover: #FFF1C0 !important;
+  --wb-quick-action-item-border-hover: var(--chiikawa-blue) !important;
+  --wb-quick-action-sub-item-bg: #FFFDF5 !important;
+  --wb-quick-action-sub-item-hover-bg: #FFF1C0 !important;
+  --wb-home-bg-primary: var(--chiikawa-yellow-light) !important;
+  --wb-home-bg-secondary: #FFFDF5 !important;
+  --wb-home-composer-card-bg: #FFFFFF !important;
+  --wb-home-composer-sub-card-bg: #FFFDF5 !important;
+  --wb-home-composer-chip-bg-hover: #FFF1C0 !important;
+  --wb-home-composer-arrow-fg: #6B5156 !important;
+  --wb-home-input-slot-bg: #FFFFFF !important;
+  --wb-bg-input-slot-gradient: #FFF3D0 !important;
+  --wb-quick-actions-fade-bg: #FFFDF5 !important;
+  --wb-text-primary: var(--chiikawa-text) !important;
+  --wb-text-strong: #2A1F22 !important;
+  --wb-text-medium: #5A4548 !important;
+  --wb-text-secondary: #6B5156 !important;
+  --wb-text-tertiary: #8A7075 !important;
+  --wb-color-text-primary: var(--chiikawa-text) !important;
+  --wb-color-text-secondary: #6B5156 !important;
+  --wb-color-text-tertiary: #8A7075 !important;
+  --wb-icon-primary: #5A4548 !important;
+  --wb-icon-secondary: #7A6065 !important;
+  --wb-icon-muted: #A09095 !important;
+  --wb-border-default: var(--chiikawa-blue) !important;
+  --wb-border-subtle: #C8D8E0 !important;
+  --wb-border-focus: var(--chiikawa-blue) !important;
+  --wb-accent: var(--chiikawa-blue) !important;
+}
+
+body {
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+  color: var(--chiikawa-text) !important;
+}
+
+/* ===== Sidebar ===== */
+.conversation-list-topbar,
+.claw-agent-chat-topbar,
+.workbuddy-topbar,
+.teams-top-bar {
+  background: linear-gradient(180deg, #F5D0D8, #F0C0CB 40%, #EBB5C0) !important;
+  border-bottom: 1px solid #E8B8C0 !important;
+}
+
+.conversation-list-tab-row.active,
+.conversation-list-tab-row:hover {
+  background: linear-gradient(135deg, var(--chiikawa-yellow-light), var(--chiikawa-yellow)) !important;
+}
+
+/* ===== Sidebar Avatar Bar ===== */
+.conversation-list-logo-row {
+  min-height: 52px !important;
+  padding: 5px 8px !important;
+  border: 1.5px solid #E8C4CB !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, var(--chiikawa-warm-white), var(--chiikawa-pink)) !important;
+}
+.conversation-list-logo-row::before {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border: 0;
+  border-radius: 0;
+  background: url("./usagi-logo.png") center/contain no-repeat;
+  box-shadow: none;
+}
+.conversation-list-logo .logo-workbuddy-icon {
+  display: none !important;
+}
+.conversation-list-logo .logo-workbuddy-title {
+  color: var(--chiikawa-text) !important;
+  font-weight: 500 !important;
+}
+
+/* ===== Sidebar Bottom Decorations ===== */
+.user-menu-trigger--workbuddy {
+  position: relative !important;
+}
+.user-menu-trigger-avatar-img {
+  display: none !important;
+}
+.user-menu-trigger-avatar {
+  width: 32px !important;
+  height: 32px !important;
+}
+.user-menu-trigger--workbuddy::after {
+  content: "";
+  display: block;
+  width: 32px;
+  height: 32px;
+  background: url("./momonga.png") center/contain no-repeat;
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+
+/* ===== Chat Topbar Layout ===== */
+.claw-workspace-title {
+  display: none !important;
+}
+
+.claw-agent-chat-topbar__actions > button:first-child {
+  display: none !important;
+}
+
+/* ===== Sidebar Topbar: icons left + three characters ===== */
+.conversation-list-topbar {
+  justify-content: flex-start !important;
+}
+
+.conversation-list-topbar::after {
+  content: "";
+  display: block;
+  flex-shrink: 0;
+  width: 72px;
+  height: 24px;
+  margin-left: auto;
+  background-image: url("./kuri-manju.png"), url("./momonga.png"), url("./chiichi-serious.png");
+  background-size: 24px 24px;
+  background-repeat: no-repeat;
+  background-position: 0 center, 24px center, 48px center;
+  pointer-events: none;
+}
+
+/* ===== Chat Area ===== */
+.wb-home-composer__input-slot {
+  background: #FFFFFF !important;
+  border: 2px solid var(--chiikawa-blue) !important;
+  border-radius: 16px !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.wb-home-composer__input-slot:focus-within {
+  border-color: var(--chiikawa-blue) !important;
+  box-shadow: 0 0 0 3px rgba(137, 207, 240, 0.3) !important;
+}
+
+/* ===== Send Button ===== */
+button[class*="send"],
+button[class*="composer"] {
+  background: var(--chiikawa-blue) !important;
+  color: var(--chiikawa-text) !important;
+  border-radius: 12px !important;
+  border: none !important;
+  font-weight: 600 !important;
+  transition: background 0.2s !important;
+}
+button[class*="send"]:hover,
+button[class*="composer"]:hover {
+  background: var(--chiikawa-blush) !important;
+}
+
+/* ===== Buttons / Links ===== */
+a, button[class*="link"] {
+  color: var(--chiikawa-blue) !important;
+}
+a:hover, button[class*="link"]:hover {
+  color: var(--chiikawa-blush) !important;
+}
+
+/* ===== Agent Cards ===== */
+.conversation-agent-card {
+  background: #FFFFFF !important;
+  border: 1px solid #F0D8DC !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 4px rgba(61, 44, 48, 0.06) !important;
+}
+
+/* ===== Empty State ===== */
+.wb-home-header {
+  background: linear-gradient(135deg, var(--chiikawa-pink), #FAD8E0) !important;
+  border-radius: 16px !important;
+  padding: 24px 20px !important;
+  margin: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+.wb-home-header__image {
+  display: none !important;
+}
+.wb-home-header::after {
+  display: none !important;
+}
+
+.teams-container [data-view-id]:not([data-view-id="sidebar"]),
+.teams-main-content,
+.main-content,
+.main-content--chat,
+.main-content--welcome,
+.welcome,
+.welcome-container,
+.claw-agent-chat-pane {
+  background-color: var(--chiikawa-yellow-light) !important;
+}
+
+.wb-home-composer {
+  position: relative !important;
+}
+
+.wb-home-composer__input-slot {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.wb-home-composer__input-slot::after {
+  content: "";
+  position: absolute;
+  top: -140px;
+  right: 8px;
+  width: 100px;
+  height: 140px;
+  background-image: url("./chiikawa-group.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: top right;
+  z-index: 50;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.18));
+}
+
+.wb-home-composer,
+.wb-home-page,
+.wb-home-page__main-content,
+.wb-home-page__content,
+.wb-home-composer__input-slot {
+  overflow: visible !important;
+}
+
+/* ===== Deep Dark Mode ===== */
+body.dark {
+  --vscode-editor-background: #2C2825 !important;
+  --vscode-sideBar-background: #3D2C30 !important;
+  --vscode-editor-foreground: #E8D5D8 !important;
+  --vscode-foreground: #E8D5D8 !important;
+  --vscode-panel-background: #3D2C30 !important;
+  --vscode-input-background: #3A302F !important;
+  --vscode-input-border: #5A7A8A !important;
+  --vscode-focusBorder: var(--chiikawa-blue-light) !important;
+  --vscode-button-background: #4A6A7A !important;
+  --vscode-button-foreground: #E8D5D8 !important;
+  --vscode-button-hoverBackground: #6A3A4A !important;
+  --vscode-list-activeSelectionBackground: #4A3A30 !important;
+  --vscode-list-activeSelectionForeground: var(--chiikawa-yellow) !important;
+  --vscode-list-hoverBackground: #4A3A30 !important;
+  --vscode-dropdown-background: #3A302F !important;
+
+  --wb-bg-primary: #2C2825 !important;
+  --wb-bg-secondary: #3D2C30 !important;
+  --wb-text-primary: #E8D5D8 !important;
+  --wb-text-secondary: #A08A8E !important;
+  --wb-border-color: #4A3A3E !important;
+}
+
+body.dark .conversation-list-topbar {
+  background: linear-gradient(180deg, #4A3438, #3D2C30 40%, #342428) !important;
+}
+
+body.dark .conversation-agent-card {
+  background: #3A302F !important;
+  border-color: #4A3A3E !important;
+}
+
+body.dark .wb-home-composer__input-slot {
+  background: #3A302F !important;
+  border-color: #5A7A8A !important;
+}

@@ -12,10 +12,10 @@ const getArg = (name, fallback = "") => {
 };
 const patched = path.resolve(getArg("--patched"));
 const target = path.resolve(getArg("--target", "/Applications/WorkBuddy.app/Contents/Resources/app.asar"));
-const backupRoot = path.resolve(getArg("--backup-dir", path.join(os.homedir(), ".workbuddy", "backups", "workbuddy-qq2008")));
+const backupRoot = path.resolve(getArg("--backup-dir", path.join(os.homedir(), ".workbuddy", "backups", "workbuddy-chiikawa")));
 const allowRunning = args.includes("--allow-running");
 
-if (!patched || !fs.existsSync(patched)) throw new Error("请使用 --patched 指定已验证的 app.qq2008.asar");
+if (!patched || !fs.existsSync(patched)) throw new Error("请使用 --patched 指定已验证的 app.chiikawa.asar");
 if (!fs.existsSync(target)) throw new Error(`找不到 WorkBuddy 资源：${target}`);
 
 const processCheck = spawnSync("/usr/bin/pgrep", ["-fl", "/Applications/WorkBuddy.app/Contents/Frameworks/WorkBuddy Helper"], { encoding: "utf8" });
@@ -27,7 +27,7 @@ const hash = (file) => crypto.createHash("sha256").update(fs.readFileSync(file))
 const stamp = new Date().toISOString().replaceAll(":", "-");
 const backupDir = path.join(backupRoot, stamp);
 const backup = path.join(backupDir, "app.asar");
-const temp = `${target}.qq2008-installing`;
+const temp = `${target}.chiikawa-installing`;
 fs.mkdirSync(backupDir, { recursive: true });
 fs.copyFileSync(target, backup);
 if (hash(target) !== hash(backup)) throw new Error("备份校验失败，已停止安装。");

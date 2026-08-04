@@ -19,7 +19,7 @@ const processCheck = spawnSync("/usr/bin/pgrep", ["-fl", "/Applications/WorkBudd
 if ((processCheck.stdout || "").trim() && !allowRunning) throw new Error("WorkBuddy 仍在运行。请完全退出应用后再恢复，或在测试副本时传入 --allow-running。");
 
 const hash = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
-const temp = `${target}.qq2008-restoring`;
+const temp = `${target}.chiikawa-restoring`;
 fs.copyFileSync(backup, temp);
 if (hash(backup) !== hash(temp)) {
   fs.rmSync(temp, { force: true });

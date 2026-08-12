@@ -239,6 +239,9 @@ a:hover, button[class*="link"]:hover {
 .wb-home-header::after {
   display: none !important;
 }
+.wb-home-composer__input-slot [class*="topRightSlotStandalone"] video {
+  display: none !important;
+}
 
 .teams-container [data-view-id]:not([data-view-id="sidebar"]),
 .teams-main-content,

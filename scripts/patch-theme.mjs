@@ -139,6 +139,22 @@ if (!htmlEntry) throw new Error("未找到 renderer/index.html，当前版本结
 const htmlPath = path.join(work, htmlEntry.rel);
 fs.writeFileSync(htmlPath, patchHtml(fs.readFileSync(htmlPath, "utf8")));
 
+const assetsDirRel = path.join(path.dirname(htmlEntry.rel), "assets");
+const currentSkinName = path.basename(skin);
+const removedOtherSkins = [];
+for (let i = entries.length - 1; i >= 0; i -= 1) {
+  const entry = entries[i];
+  if (entry.type !== "file") continue;
+  if (path.dirname(entry.rel) !== assetsDirRel) continue;
+  const basename = path.basename(entry.rel);
+  if (basename === currentSkinName) continue;
+  if (!basename.endsWith("skin.css") && !basename.endsWith("skin.js")) continue;
+  const filePath = path.join(work, entry.rel);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  removedOtherSkins.push(entry.rel);
+  entries.splice(i, 1);
+}
+
 const injectedAssets = [skin, ...scripts, ...extraAssets];
 const injectedAssetRels = [];
 for (const injectedAsset of injectedAssets) {

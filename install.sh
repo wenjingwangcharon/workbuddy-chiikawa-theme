@@ -5,6 +5,10 @@ REPO_DIR="${0:A:h}"
 APP_ASAR="/Applications/WorkBuddy.app/Contents/Resources/app.asar"
 SKIN="$REPO_DIR/theme/chiikawa-skin.css"
 
+SCRIPTS=(
+  "$REPO_DIR/theme/chiikawa-audio.js"
+)
+
 ASSETS=(
   "$REPO_DIR/theme/usagi-logo.png"
   "$REPO_DIR/theme/chiikawa-group.png"
@@ -14,6 +18,10 @@ ASSETS=(
   "$REPO_DIR/theme/momonga.png"
   "$REPO_DIR/theme/kuri-manju.png"
   "$REPO_DIR/theme/stack.png"
+  "$REPO_DIR/theme/assets/Yoolooko - 乌拉呀哈呀哈乌拉.wav"
+  "$REPO_DIR/theme/assets/Yoolooko - 曾曾哇嘎乃.wav"
+  "$REPO_DIR/theme/assets/Yoolooko - 纳尼纳尼.wav"
+  "$REPO_DIR/theme/assets/Yoolooko - 羊粑粑.wav"
 )
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -70,6 +78,11 @@ PATCHED="$RUN_DIR/app.chiikawa.asar"
 EXTRACT="$RUN_DIR/extract"
 mkdir -p "$RUN_DIR"
 
+SCRIPT_ARGS=()
+for script in "${SCRIPTS[@]}"; do
+  SCRIPT_ARGS+=(--script "$script")
+done
+
 ASSET_ARGS=()
 for asset in "${ASSETS[@]}"; do
   ASSET_ARGS+=(--asset "$asset")
@@ -79,6 +92,7 @@ done
   --source "$APP_ASAR" \
   --output "$PATCHED" \
   --skin "$SKIN" \
+  "${SCRIPT_ARGS[@]}" \
   "${ASSET_ARGS[@]}" \
   --work "$EXTRACT"
 

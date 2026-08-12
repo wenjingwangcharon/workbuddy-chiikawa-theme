@@ -182,7 +182,7 @@ for (const assetRel of injectedAssetRels) {
   if (!listed.includes(normalizedAssetRel)) throw new Error(`校验失败：补丁包中缺少 ${path.basename(assetRel)}`);
 }
 const patchedHtml = asar.extractFile(output, htmlEntry.rel).toString("utf8");
-if (!patchedHtml.includes("chiikawa-skin.css")) throw new Error("校验失败：HTML 未注入皮肤链接");
+if (!patchedHtml.includes(skinMarker)) throw new Error("校验失败：HTML 未注入皮肤链接");
 for (const script of scripts) {
   if (!patchedHtml.includes(path.basename(script))) throw new Error(`校验失败：HTML 未注入脚本 ${path.basename(script)}`);
 }

@@ -8,6 +8,7 @@ SKIN="$REPO_DIR/theme/chiikawa-skin.css"
 ASSETS=(
   "$REPO_DIR/theme/usagi-logo.png"
   "$REPO_DIR/theme/chiikawa-group.png"
+  "$REPO_DIR/theme/chiikawa-friends.png"
   "$REPO_DIR/theme/chiichi-serious.png"
   "$REPO_DIR/theme/chiichi-playful.png"
   "$REPO_DIR/theme/momonga.png"

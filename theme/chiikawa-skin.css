@@ -5,6 +5,7 @@ body.light {
   --chiikawa-pink: #F0C0CB;
   --chiikawa-yellow-light: #FFF8E1;
   --chiikawa-yellow: #FFF1C0;
+  --chiikawa-cream: #FFF6CE;
   --chiikawa-blue-light: #89CFF0;
   --chiikawa-blue: #7BC0E3;
   --chiikawa-text: #3D2C30;
@@ -241,6 +242,31 @@ a:hover, button[class*="link"]:hover {
 }
 .wb-home-composer__input-slot [class*="topRightSlotStandalone"] video {
   display: none !important;
+}
+
+/* ===== Workspace Preparing: replace mascot with chiikawa-friends ===== */
+.workspace-preparing {
+  background-color: var(--chiikawa-cream) !important;
+}
+.workspace-preparing__icon {
+  width: 280px !important;
+  height: 156px !important;
+  margin-bottom: 16px !important;
+}
+.workspace-preparing__icon img {
+  display: none !important;
+}
+.workspace-preparing__icon::after {
+  content: "";
+  display: block;
+  width: 280px;
+  height: 156px;
+  background: url("./chiikawa-friends.png") center/contain no-repeat;
+  filter: drop-shadow(0 4px 8px rgba(61, 44, 48, 0.1));
+}
+.workspace-preparing__progress-bar {
+  background: linear-gradient(90deg, var(--chiikawa-pink) 0%, var(--chiikawa-blue) 50%, var(--chiikawa-pink) 100%) !important;
+  background-size: 200% 100% !important;
 }
 
 .teams-container [data-view-id]:not([data-view-id="sidebar"]),

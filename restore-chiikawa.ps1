@@ -1,4 +1,4 @@
-# Restore the original WorkBuddy app.asar (run AFTER fully quitting WorkBuddy).
+﻿# Restore the original WorkBuddy app.asar (run AFTER fully quitting WorkBuddy).
 # Generic: auto-detects WorkBuddy install path and the newest backup in ~/.workbuddy/backups.
 #
 # 用法（先完全退出 WorkBuddy，含系统托盘图标）：

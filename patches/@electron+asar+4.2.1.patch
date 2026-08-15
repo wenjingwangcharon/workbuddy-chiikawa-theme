@@ -1,0 +1,37 @@
+diff --git a/node_modules/@electron/asar/lib/asar.js b/node_modules/@electron/asar/lib/asar.js
+index 5ac3eec..eae78eb 100644
+--- a/node_modules/@electron/asar/lib/asar.js
++++ b/node_modules/@electron/asar/lib/asar.js
+@@ -72,7 +72,7 @@ export async function createPackageFromFiles(src, dest, filenames, metadata = {}
+         });
+         const ordering = [];
+         for (const file of orderingFiles) {
+-            const pathComponents = file.split(path.sep);
++            const pathComponents = file.split('/');
+             let str = src;
+             for (const pathComponent of pathComponents) {
+                 str = path.join(str, pathComponent);
+@@ -163,7 +163,7 @@ export async function createPackageFromStreams(dest, streams) {
+     const links = [];
+     const handleFile = async function (stream) {
+         const { path: destinationPath, type } = stream;
+-        const filename = path.normalize(destinationPath);
++        const filename = destinationPath.replace(/\\/g, '/');
+         switch (type) {
+             case 'directory':
+                 filesystem.insertDirectory(filename, stream.unpacked);
+diff --git a/node_modules/@electron/asar/lib/filesystem.js b/node_modules/@electron/asar/lib/filesystem.js
+index e23538e..198ff1d 100644
+--- a/node_modules/@electron/asar/lib/filesystem.js
++++ b/node_modules/@electron/asar/lib/filesystem.js
+@@ -33,8 +33,9 @@ export class Filesystem {
+         this.headerSize = headerSize;
+     }
+     searchNodeFromDirectory(p) {
++        p = p.replace(/\\/g, '/');
+         let json = this.header;
+-        const dirs = p.split(path.sep);
++        const dirs = p.split('/');
+         for (const dir of dirs) {
+             if (dir !== '.') {
+                 if ('files' in json) {

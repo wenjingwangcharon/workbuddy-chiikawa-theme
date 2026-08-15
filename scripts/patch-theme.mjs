@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const args = process.argv.slice(2);
 const getArg = (name, fallback = "") => {
@@ -11,11 +11,17 @@ const getArg = (name, fallback = "") => {
 };
 const getArgs = (name) => args.flatMap((arg, index) => arg === name && args[index + 1] ? [args[index + 1]] : []);
 
-const scriptDir = path.dirname(new URL(import.meta.url).pathname);
+// fileURLToPath 在 macOS 上与旧写法结果一致，并额外修正 Windows 盘符与路径中的百分号转义。
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoDir = path.resolve(scriptDir, "..");
-const source = path.resolve(getArg("--source", "/Applications/WorkBuddy.app/Contents/Resources/app.asar"));
+const defaultSource = process.platform === "win32"
+  ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "Programs", "WorkBuddy", "resources", "app.asar")
+  : "/Applications/WorkBuddy.app/Contents/Resources/app.asar";
+const source = path.resolve(getArg("--source", defaultSource));
 const output = path.resolve(getArg("--output", path.join(repoDir, ".work", "app.chiikawa.asar")));
 const skin = path.resolve(getArg("--skin", path.join(repoDir, "theme", "chiikawa-skin.css")));
+// --style 可重复传入，注入顺序在主皮肤之后，用于平台专属覆盖样式。
+const styles = getArgs("--style").map((style) => path.resolve(style));
 const scripts = getArgs("--script").map((script) => path.resolve(script));
 const extraAssets = getArgs("--asset").map((asset) => path.resolve(asset));
 const work = path.resolve(getArg("--work", path.join(os.tmpdir(), `workbuddy-chiikawa-${process.pid}`)));
@@ -26,6 +32,9 @@ if (source === output) {
 }
 if (!fs.existsSync(source)) throw new Error(`找不到源文件：${source}`);
 if (!fs.existsSync(skin)) throw new Error(`找不到皮肤文件：${skin}`);
+for (const style of styles) {
+  if (!fs.existsSync(style)) throw new Error(`找不到覆盖样式文件：${style}`);
+}
 for (const asset of [...scripts, ...extraAssets]) {
   if (!fs.existsSync(asset)) throw new Error(`找不到附加资源：${asset}`);
 }
@@ -65,6 +74,10 @@ function patchHtml(html) {
   const tags = [];
   const skinMarker = path.basename(skin);
   if (!html.includes(skinMarker)) tags.push(`  <link rel="stylesheet" href="./assets/${skinMarker}">`);
+  for (const style of styles) {
+    const marker = path.basename(style);
+    if (!html.includes(marker)) tags.push(`  <link rel="stylesheet" href="./assets/${marker}">`);
+  }
   for (const script of scripts) {
     const marker = path.basename(script);
     if (!html.includes(marker)) tags.push(`  <script defer src="./assets/${marker}"></script>`);
@@ -139,23 +152,7 @@ if (!htmlEntry) throw new Error("未找到 renderer/index.html，当前版本结
 const htmlPath = path.join(work, htmlEntry.rel);
 fs.writeFileSync(htmlPath, patchHtml(fs.readFileSync(htmlPath, "utf8")));
 
-const assetsDirRel = path.join(path.dirname(htmlEntry.rel), "assets");
-const currentSkinName = path.basename(skin);
-const removedOtherSkins = [];
-for (let i = entries.length - 1; i >= 0; i -= 1) {
-  const entry = entries[i];
-  if (entry.type !== "file") continue;
-  if (path.dirname(entry.rel) !== assetsDirRel) continue;
-  const basename = path.basename(entry.rel);
-  if (basename === currentSkinName) continue;
-  if (!basename.endsWith("skin.css") && !basename.endsWith("skin.js")) continue;
-  const filePath = path.join(work, entry.rel);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  removedOtherSkins.push(entry.rel);
-  entries.splice(i, 1);
-}
-
-const injectedAssets = [skin, ...scripts, ...extraAssets];
+const injectedAssets = [skin, ...styles, ...scripts, ...extraAssets];
 const injectedAssetRels = [];
 for (const injectedAsset of injectedAssets) {
   const assetRel = path.join(path.dirname(htmlEntry.rel), "assets", path.basename(injectedAsset));
@@ -198,7 +195,10 @@ for (const assetRel of injectedAssetRels) {
   if (!listed.includes(normalizedAssetRel)) throw new Error(`校验失败：补丁包中缺少 ${path.basename(assetRel)}`);
 }
 const patchedHtml = asar.extractFile(output, htmlEntry.rel).toString("utf8");
-if (!patchedHtml.includes(path.basename(skin))) throw new Error("校验失败：HTML 未注入皮肤链接");
+if (!patchedHtml.includes("chiikawa-skin.css")) throw new Error("校验失败：HTML 未注入皮肤链接");
+for (const style of styles) {
+  if (!patchedHtml.includes(path.basename(style))) throw new Error(`校验失败：HTML 未注入覆盖样式 ${path.basename(style)}`);
+}
 for (const script of scripts) {
   if (!patchedHtml.includes(path.basename(script))) throw new Error(`校验失败：HTML 未注入脚本 ${path.basename(script)}`);
 }
@@ -210,7 +210,9 @@ console.log(JSON.stringify({
   entries: entries.length,
   skippedMissing,
   compatibilityMarkers,
+  platform: process.platform,
   skinInjected: true,
+  stylesInjected: styles.map((style) => path.basename(style)),
   scriptsInjected: scripts.map((script) => path.basename(script)),
   assetsInjected: injectedAssetRels.map((assetRel) => path.basename(assetRel)),
   outputBytes: fs.statSync(output).size

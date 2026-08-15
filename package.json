@@ -2,15 +2,19 @@
   "name": "workbuddy-chiikawa-theme",
   "version": "1.0.0",
   "private": true,
-  "description": "Chiikawa themed skin installer for WorkBuddy on macOS",
+  "description": "Chiikawa themed skin installer for WorkBuddy (macOS & Windows)",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
   },
   "dependencies": {
-    "@electron/asar": "4.2.0"
+    "@electron/asar": "4.2.1"
   },
   "scripts": {
+    "postinstall": "patch-package",
     "verify": "node --check scripts/patch-theme.mjs && node --check scripts/install-theme.mjs && node --check scripts/restore-theme.mjs"
+  },
+  "devDependencies": {
+    "patch-package": "8.0.1"
   }
 }

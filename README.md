@@ -2,54 +2,40 @@
 
 WorkBuddy 的 Chiikawa（吉伊卡哇）主题皮肤。米黄主色调、粉色顶栏、sidebar 三只角色装饰（栗子馒头/飞鼠/吉伊）、首页对话框右上角叠叠乐贴图。
 
-当前已验证版本：WorkBuddy 5.3.7。
+当前已验证版本：WorkBuddy 5.8.3（Windows 实测通过；macOS 理论兼容，欢迎反馈）。
 
-## 支持平台
+## v2 安装方式（2026-10 重写，免改 app.asar）
 
-| 平台 | 安装入口 | Windows 专属覆盖 |
-| --- | --- | --- |
-| macOS | `./install.sh` | 无（使用上游默认外观） |
-| Windows | `powershell -ExecutionPolicy Bypass -File .\install.ps1` | `theme/chiikawa-skin.win.css`（仅隐藏被原生标题栏遮挡的侧栏角色贴纸） |
+旧版方案直接给 `app.asar` 打补丁，在 Windows 上受版本强绑定和 `@electron/asar` 路径问题影响，多次导致 WorkBuddy 启动崩溃；且 WorkBuddy 自动更新会覆盖补丁。
 
-两个平台**共用同一套皮肤与打包脚本**：
+**新版完全不改 `app.asar`**，改为向 WorkBuddy 原生皮肤系统预置缓存（利用其「本地缓存命中则不重新下载」的机制），因此：
 
-- `theme/chiikawa-skin.css` 是跨平台基础样式（按 macOS 无边框窗口调好）。
-- `scripts/patch-theme.mjs` 会按 `process.platform` 自动选择 WorkBuddy 的 `app.asar` 路径；**仅在 Windows 上**额外注入 `chiikawa-skin.win.css` 覆盖层。
-- `scripts/install-theme.mjs` / `restore-theme.mjs` 的进程检测同样按平台分流（Windows 用 `tasklist`，macOS 用 `pgrep`）。
+- **不会导致启动崩溃**（最坏情况只是样式不生效）；
+- **不会被 WorkBuddy 自动更新清除**；
+- **零 npm 依赖**，一个 Node 脚本跑完。
 
-因此 Mac 用户跑 `install.sh`、Windows 用户跑 `install.ps1`，各自只做自己平台的事，**互不干扰**。
+工作原理：WorkBuddy 的主题列表由服务器目录下发（本地文件夹不会被列出），但应用主题时它**先读本地缓存 `skin.v2.css`，命中就直接用、不联网下载**。本脚本把 Chiikawa 预置进一个官方主题槽位（默认 `和平精英激战金秋`）的缓存位置——你在 设置 → 外观 里选中该主题，实际加载的就是 Chiikawa。
 
-## 效果
+### 平台差异（与旧版保持一致）
 
-- 主页/对话区：温暖米黄色底色
-- 侧边栏/顶栏：柔和粉色调
-- 首页 input 框右上角：吉伊+乌萨奇+小八叠叠乐贴图
-- 侧边栏顶栏：macOS 显示栗子馒头 + 飞鼠 + 吉伊三只角色；Windows 因原生标题栏无法隐藏，该区域三只角色默认隐藏（见 `chiikawa-skin.win.css` 注释，如需显示可改 positioning 规则）
+| 平台 | 样式 |
+| --- | --- |
+| macOS | 基础样式 `chiikawa-skin.css`，侧栏顶栏显示栗子馒头 + 飞鼠 + 吉伊三只贴纸 |
+| Windows | 额外合并 `chiikawa-skin.win.css`，隐藏被原生标题栏遮挡的顶栏贴纸 |
 
-## macOS 安装
+## 安装
 
-要求：
+要求：Node.js 18+（或本机装过 WorkBuddy，脚本会自动找它自带的 Node）。
 
-- macOS
-- WorkBuddy 安装在 `/Applications/WorkBuddy.app`
-- Node.js 22.12 或更高版本
+**macOS：**
 
 ```bash
 git clone <repo-url>
 cd workbuddy-chiikawa-theme
-npm install --ignore-scripts
 ./install.sh
 ```
 
-安装后用 **Command + Q** 完全退出 WorkBuddy，再重新打开。
-
-## Windows 安装
-
-要求：
-
-- Windows 10/11
-- WorkBuddy 安装在默认目录（`%LOCALAPPDATA%\Programs\WorkBuddy`，或 `C:\Program Files\WorkBuddy`）
-- Node.js 22.12 或更高版本（WorkBuddy 自带的隔离 Node 也可被自动探测到）
+**Windows：**
 
 ```powershell
 git clone <repo-url>
@@ -57,76 +43,69 @@ cd workbuddy-chiikawa-theme
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-`install.ps1` 会：自动探测 WorkBuddy 安装目录 → 校验已完全退出（Windows 会独占锁定 `app.asar`）→ 安装依赖并应用 `@electron/asar` 的 Windows 路径补丁 → 构建补丁包 → 备份并原子替换。
+安装脚本会自动：
 
-> 注意：**运行前请完全退出 WorkBuddy（含系统托盘图标）**。否则 `app.asar` 被占用，替换会失败。
+1. 定位 WorkBuddy 配置目录（`~/.workbuddy`，可用环境变量 `WORKBUDDY_CONFIG_DIR` 覆盖）；
+2. 从本地主题目录缓存解析槽位主题的 `updatedAt`（即缓存目录名后缀）；
+3. 按**当前平台**拼装 CSS（Windows 合并 win.css，macOS 不合并）并预置 `skin.v2.css` + 全部贴图；
+4. 若 WorkBuddy 未在运行，自动把主题选择切换到该槽位并备份 `preferences.json`。
 
-### Windows 快速重装 / 还原
+然后：
 
-- 已构建过补丁包后，重装只需替换、无需重新解包：
+- 如果安装时 WorkBuddy 已关闭 → **重启 WorkBuddy 即生效**；
+- 如果安装时 WorkBuddy 正在运行 → 重启后到 **设置 → 外观** 点一次该主题卡片。
 
-  ```powershell
-  powershell -ExecutionPolicy Bypass -File .\apply-chiikawa.ps1
-  ```
+> 注：主题列表里该卡片的封面缩略图仍是官方预览图（封面来自服务器，无法替换），选中后实际效果就是 Chiikawa。
 
-  （自动寻找本仓库 `.work\` 下最新的 `app.chiikawa.asar`；也可用 `-Patched` 指定具体路径）
-
-- 还原原版：
-
-  ```powershell
-  powershell -ExecutionPolicy Bypass -File .\restore.ps1 "<备份目录>\app.asar"
-  ```
-
-  或快捷版（自动找最新备份）：
-
-  ```powershell
-  powershell -ExecutionPolicy Bypass -File .\restore-chiikawa.ps1
-  ```
-
-## 恢复原版（macOS）
+## 卸载 / 恢复
 
 ```bash
-./restore.sh "$HOME/.workbuddy/backups/workbuddy-chiikawa/<时间>/app.asar"
+# macOS
+./uninstall.sh
 ```
 
-## 安全与回滚
+```powershell
+# Windows
+powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
+```
 
-安装过程不会直接修改原包内容。它会：
+会移除预置的种子目录，并把主题选择还原为安装前的状态（`preferences.json` 有自动备份）。
 
-1. 从当前 WorkBuddy 的 `app.asar` 构建一个补丁副本
-2. 校验 chiikawa-skin.css 及所有素材图片均已写入
-3. 校验当前版本包含皮肤所需的关键界面标记
-4. 把当前原版备份到 `~/.workbuddy/backups/workbuddy-chiikawa/<时间>/app.asar`
-5. 校验备份 SHA-256 后原子替换
+## 已知限制
 
-## 版本更新
+- **交互音效暂不可用**：旧方案往 `index.html` 注入 `chiikawa-audio.js` 实现点击音效；v2 是纯 CSS 方案，无法注入脚本。音效素材仍保留在 `theme/assets/` 供未来方案使用。
+- **槽位依赖服务器目录的 `updatedAt`**：如果官方更新了该主题（目录名后缀变化），皮肤会失效，重新运行安装脚本即可（脚本每次运行都会解析最新的 `updatedAt`）。
+- **每个槽位同一时刻只能装一套皮肤**：默认槽位 `theme-tkmw7j`。如果你自己在用「和平精英激战金秋」，可用 `--slot` 换一个不用的官方主题，例如：
+  `node scripts/install-skin.mjs --slot theme-tkbe90`
 
-WorkBuddy 更新通常会覆盖 `app.asar`，皮肤会失效。不要恢复旧版本的整包备份到新版本上，重新执行安装流程即可。
+## 常用参数
 
-## 关于 @electron/asar 补丁
+```
+node scripts/install-skin.mjs [--slot <resourceKey>] [--ts <updatedAt>] [--no-select] [--name "<主题子文件夹名>"]
+node scripts/install-skin.mjs --uninstall
+```
 
-`patches/@electron+asar+4.2.1.patch` 修复 `@electron/asar` 4.2.1 在 Windows 上按 `path.sep`（反斜杠）切分 asar 内部路径、导致嵌套文件读写失败的问题。该补丁在 macOS 上是等价无副作用的改动；Windows 安装脚本会在 `npm install` 后显式调用 `patch-package` 应用它，macOS 无需处理。
+- `--slot`：指定要占用的官方主题槽位（默认 `theme-tkmw7j`）
+- `--ts`：手动指定目录名后缀（正常情况下脚本会自动解析，仅排障用）
+- `--no-select`：不自动修改主题选择，装完后自己到 设置 → 外观 点选
+
+## 旧版方案（已弃用，仅供研究）
+
+给 `app.asar` 整包打补丁的安装/恢复脚本移到了 `legacy/` 目录，**不建议使用**：Windows 上曾多次因版本错配或重打包丢文件导致 WorkBuddy 无法启动，且会被自动更新覆盖。详见 `legacy/` 内脚本注释。
 
 ## 文件说明
 
 - `theme/chiikawa-skin.css` — 主题基础样式（跨平台）
-- `theme/chiikawa-skin.win.css` — Windows 专属覆盖样式（仅 Windows 安装时注入）
-- `theme/chiikawa-group.png` — 首页对话框右上角叠叠乐贴图（吉伊+乌萨奇+小八）
-- `theme/chiikawa-friends.png` — 新对话加载页插图
-- `theme/chiichi-serious.png` / `theme/chiichi-playful.png` — sidebar 吉伊
-- `theme/momonga.png` — sidebar 飞鼠
-- `theme/kuri-manju.png` — sidebar 栗子馒头
-- `theme/usagi-logo.png` — logo
-- `theme/stack.png` — 装饰素材
-- `theme/chiikawa-audio.js` + `theme/assets/*.wav` — 交互音效
-- `scripts/patch-theme.mjs` — 构建补丁包（跨平台）
-- `scripts/install-theme.mjs` — 备份和原子安装（跨平台）
-- `scripts/restore-theme.mjs` — 从指定备份恢复（跨平台）
-- `install.sh` / `restore.sh` — macOS 安装/恢复入口
-- `install.ps1` / `restore.ps1` / `apply-chiikawa.ps1` / `restore-chiikawa.ps1` — Windows 入口
+- `theme/chiikawa-skin.win.css` — Windows 专属覆盖样式（仅 Windows 安装时合并）
+- `theme/*.png` — 贴纸素材（叠叠乐、三只角色、logo 等）
+- `theme/chiikawa-audio.js` + `theme/assets/*.wav` — 交互音效（旧方案用，v2 暂不加载）
+- `scripts/install-skin.mjs` — v2 安装/卸载脚本（跨平台、零依赖）
+- `install.sh` / `uninstall.sh` — macOS 入口
+- `install.ps1` / `uninstall.ps1` — Windows 入口
+- `legacy/` — 旧版 app.asar 补丁方案（已弃用）
 
 ## 使用边界
 
-这是个人开发者制作的非官方主题。修改应用资源可能影响代码签名，并会在版本更新后被覆盖。
+这是个人开发者制作的非官方主题。v2 方案只写 WorkBuddy 的用户数据目录（`~/.workbuddy`），不修改应用本体与代码签名。
 
 Chiikawa（吉伊卡哇）角色形象相关权利归原作者 Nagano 所有，本仓库仅用于个人、非商业的界面定制，不代表 WorkBuddy、Chiikawa 或任何版权方的官方立场与背书。详见 `NOTICE.md`。

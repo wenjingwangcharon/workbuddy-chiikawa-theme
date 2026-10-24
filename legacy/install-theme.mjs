@@ -49,6 +49,27 @@ fs.mkdirSync(backupDir, { recursive: true });
 fs.copyFileSync(target, backup);
 if (hash(target) !== hash(backup)) throw new Error("备份校验失败，已停止安装。");
 
+// Deploy the patched package's .unpacked directory. Electron reads files marked
+// "unpacked" from <app.asar>.unpacked next to the asar, not from inside it. The patched
+// asar's header references files living in its sibling app.chiikawa.asar.unpacked; if we
+// only swap app.asar, Electron fails to find them and WorkBuddy won't start.
+const patchedUnpacked = patched + ".unpacked";
+if (fs.existsSync(patchedUnpacked)) {
+  const targetUnpacked = target + ".unpacked";
+  fs.mkdirSync(targetUnpacked, { recursive: true });
+  const copyDir = (src, dst) => {
+    for (const e of fs.readdirSync(src, { withFileTypes: true })) {
+      const s = path.join(src, e.name), d = path.join(dst, e.name);
+      if (e.isDirectory()) { fs.mkdirSync(d, { recursive: true }); copyDir(s, d); }
+      else fs.copyFileSync(s, d);
+    }
+  };
+  copyDir(patchedUnpacked, targetUnpacked);
+  console.warn(`Deployed patched unpacked assets into ${targetUnpacked}`);
+} else {
+  console.warn("WARNING: patched package has no .unpacked directory; relying on existing app.asar.unpacked");
+}
+
 fs.copyFileSync(patched, temp);
 if (hash(patched) !== hash(temp)) {
   fs.rmSync(temp, { force: true });

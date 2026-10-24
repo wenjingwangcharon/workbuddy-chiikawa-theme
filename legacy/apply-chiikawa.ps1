@@ -69,6 +69,23 @@ $backup = Join-Path $backupDir ('app.asar.orig.' + $ts)
 Copy-Item -LiteralPath $orig -Destination $backup -Force
 Write-Host "Backup created: $backup"
 
+# 4b) Deploy the patched package's .unpacked directory.
+#     Electron reads files marked "unpacked" from <app.asar>.unpacked next to the asar,
+#     NOT from inside the asar. The patched asar's header references files that live in its
+#     sibling app.chiikawa.asar.unpacked. If we only swap app.asar and leave the old
+#     .unpacked in place, Electron fails to find those files and WorkBuddy won't start.
+$patchedUnpacked = $Patched + ".unpacked"
+if (Test-Path -LiteralPath $patchedUnpacked) {
+  $targetUnpacked = Join-Path $resources 'app.asar.unpacked'
+  if (-not (Test-Path -LiteralPath $targetUnpacked)) { New-Item -ItemType Directory -Force -Path $targetUnpacked | Out-Null }
+  # merge (additive): copy patched unpacked files into the target unpacked dir.
+  # Existing original files are preserved; this only adds what the patched asar needs.
+  Copy-Item -Path (Join-Path $patchedUnpacked '*') -Destination $targetUnpacked -Recurse -Force
+  Write-Host "Deployed patched unpacked assets into $targetUnpacked"
+} else {
+  Write-Host "WARNING: patched package has no .unpacked directory; relying on existing app.asar.unpacked" -ForegroundColor Yellow
+}
+
 # 5) Stage a copy next to the target (same volume => atomic replace possible)
 $staged = Join-Path $resources 'app.asar.new'
 if (Test-Path -LiteralPath $staged) { Remove-Item -LiteralPath $staged -Force }

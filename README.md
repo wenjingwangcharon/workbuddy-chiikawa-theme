@@ -73,7 +73,7 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 
 ## 已知限制
 
-- **交互音效暂不可用**：旧方案往 `index.html` 注入 `chiikawa-audio.js` 实现点击音效；v2 是纯 CSS 方案，无法注入脚本。音效素材仍保留在 `theme/assets/` 供未来方案使用。
+- **交互音效依赖一次极小的注入**：皮肤本体（CSS）走原生槽位，但点击音效需要往 `app.asar.unpacked/renderer/index.html` 注入一行 `<script>` 并复制 4 个音频文件（安装脚本自动完成，`--no-audio` 可跳过）。WorkBuddy 自动更新会重置 `index.html`，音效消失后重跑安装脚本即可恢复；不恢复也不影响皮肤样式。
 - **槽位依赖服务器目录的 `updatedAt`**：如果官方更新了该主题（目录名后缀变化），皮肤会失效，重新运行安装脚本即可（脚本每次运行都会解析最新的 `updatedAt`）。
 - **每个槽位同一时刻只能装一套皮肤**：默认槽位 `theme-tkmw7j`。如果你自己在用「和平精英激战金秋」，可用 `--slot` 换一个不用的官方主题，例如：
   `node scripts/install-skin.mjs --slot theme-tkbe90`
@@ -98,7 +98,7 @@ node scripts/install-skin.mjs --uninstall
 - `theme/chiikawa-skin.css` — 主题基础样式（跨平台）
 - `theme/chiikawa-skin.win.css` — Windows 专属覆盖样式（仅 Windows 安装时合并）
 - `theme/*.png` — 贴纸素材（叠叠乐、三只角色、logo 等）
-- `theme/chiikawa-audio.js` + `theme/assets/*.wav` — 交互音效（旧方案用，v2 暂不加载）
+- `theme/chiikawa-audio.js` + `theme/assets/*.wav` — 交互音效（安装时注入到渲染进程加载）
 - `scripts/install-skin.mjs` — v2 安装/卸载脚本（跨平台、零依赖）
 - `install.sh` / `uninstall.sh` — macOS 入口
 - `install.ps1` / `uninstall.ps1` — Windows 入口

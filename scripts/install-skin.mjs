@@ -40,7 +40,7 @@ function argValue(name, fallback) {
 }
 const hasFlag = (name) => args.includes(name);
 if (hasFlag("--help") || hasFlag("-h")) {
-  console.log(`Usage: node scripts/install-skin.mjs [--slot theme-tkmw7j] [--ts <updatedAt>] [--no-select] [--name "<name>"]
+  console.log(`Usage: node scripts/install-skin.mjs [--slot theme-tkmw7j] [--ts <updatedAt>] [--no-select] [--no-audio] [--name "<name>"]
        node scripts/install-skin.mjs --uninstall [--slot theme-tkmw7j]`);
   process.exit(0);
 }
@@ -156,6 +156,113 @@ const IMAGES = [
   "stack.png",
 ];
 
+// ---------- click sounds (index.html injection) ----------
+// The native theme-slot method is pure CSS and cannot carry JS. Click sounds
+// therefore need a tiny one-line injection into the on-disk unpacked
+// renderer/index.html (script tag + audio assets). This is the only step that
+// touches the app install dir; a WorkBuddy auto-update re-extracts
+// app.asar.unpacked and wipes it — just re-run this script to restore.
+const AUDIO_SCRIPT = "chiikawa-audio.js";
+const AUDIO_TAG = `<script defer src="./assets/${AUDIO_SCRIPT}"></script>`;
+const AUDIO_MARKER = "chiikawa-audio.js";
+const SOUNDS = [
+  "Yoolooko - 乌拉呀哈呀哈乌拉.wav",
+  "Yoolooko - 纳尼纳尼.wav",
+  "Yoolooko - 曾曾哇嘎乃.wav",
+];
+
+function findResourcesDir() {
+  const candidates = [];
+  if (process.env.WORKBUDDY_RESOURCES_DIR) candidates.push(process.env.WORKBUDDY_RESOURCES_DIR);
+  if (isWin) {
+    if (process.env.LOCALAPPDATA) candidates.push(path.join(process.env.LOCALAPPDATA, "Programs", "WorkBuddy", "resources"));
+    candidates.push(path.join("C:", "Program Files", "WorkBuddy", "resources"));
+    try {
+      const out = execFileSync(
+        "powershell",
+        ["-NoProfile", "-Command",
+         "(Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*','HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*','HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*' -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like '*WorkBuddy*' } | Select-Object -First 1).InstallLocation"],
+        { encoding: "utf8", timeout: 20000 }
+      ).trim();
+      if (out) candidates.push(path.join(out, "resources"));
+    } catch {
+      /* registry lookup failed — fall through */
+    }
+    // fallback: ask a running WorkBuddy process for its own exe path
+    try {
+      const out = execFileSync(
+        "powershell",
+        ["-NoProfile", "-Command", "(Get-Process WorkBuddy -ErrorAction SilentlyContinue | Select-Object -First 1).Path"],
+        { encoding: "utf8", timeout: 20000 }
+      ).trim();
+      if (out) candidates.push(path.join(path.dirname(out), "resources"));
+    } catch {
+      /* process lookup failed — fall through */
+    }
+  } else if (isMac) {
+    candidates.push("/Applications/WorkBuddy.app/Contents/Resources");
+    candidates.push(path.join(os.homedir(), "Applications", "WorkBuddy.app", "Contents", "Resources"));
+  }
+  for (const c of candidates) {
+    if (c && fs.existsSync(path.join(c, "app.asar.unpacked", "renderer", "index.html"))) return c;
+  }
+  return null;
+}
+
+function rendererIndex(resourcesDir) {
+  return path.join(resourcesDir, "app.asar.unpacked", "renderer", "index.html");
+}
+
+function injectAudio(resourcesDir) {
+  const htmlPath = rendererIndex(resourcesDir);
+  const backupPath = htmlPath + ".chiikawa-bak";
+  if (!fs.existsSync(backupPath)) fs.copyFileSync(htmlPath, backupPath);
+  let html = fs.readFileSync(htmlPath, "utf8");
+  let injected = false;
+  if (!html.includes(AUDIO_MARKER)) {
+    if (!html.includes("</head>")) return { ok: false, reason: "index.html 中未找到 </head>" };
+    html = html.replace("</head>", AUDIO_TAG + "\n</head>");
+    fs.writeFileSync(htmlPath, html, "utf8");
+    injected = true;
+  }
+  const assetsDir = path.join(resourcesDir, "app.asar.unpacked", "renderer", "assets");
+  fs.mkdirSync(assetsDir, { recursive: true });
+  let copied = 0;
+  fs.copyFileSync(path.join(THEME_DIR, AUDIO_SCRIPT), path.join(assetsDir, AUDIO_SCRIPT));
+  copied++;
+  for (const s of SOUNDS) {
+    const src = path.join(THEME_DIR, "assets", s);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, path.join(assetsDir, s));
+      copied++;
+    } else {
+      console.warn("警告: 缺少音效素材", s);
+    }
+  }
+  return { ok: true, injected, copied, backup: backupPath };
+}
+
+function removeAudio(resourcesDir) {
+  const htmlPath = rendererIndex(resourcesDir);
+  const backupPath = htmlPath + ".chiikawa-bak";
+  try {
+    if (fs.existsSync(backupPath)) {
+      fs.copyFileSync(backupPath, htmlPath);
+    } else if (fs.existsSync(htmlPath)) {
+      let html = fs.readFileSync(htmlPath, "utf8");
+      html = html.replace(AUDIO_TAG + "\n</head>", "</head>").replace(AUDIO_TAG + "</head>", "</head>");
+      fs.writeFileSync(htmlPath, html, "utf8");
+    }
+  } catch {
+    return false;
+  }
+  const assetsDir = path.join(resourcesDir, "app.asar.unpacked", "renderer", "assets");
+  for (const f of [AUDIO_SCRIPT, ...SOUNDS]) {
+    try { fs.rmSync(path.join(assetsDir, f), { force: true }); } catch {}
+  }
+  return true;
+}
+
 // ---------- running check ----------
 function workbuddyRunning() {
   try {
@@ -247,6 +354,11 @@ if (uninstall) {
       removed = true;
     }
   }
+  const resourcesDir = findResourcesDir();
+  if (resourcesDir) {
+    const audioRemoved = removeAudio(resourcesDir);
+    console.log(audioRemoved ? "点击音效注入已还原（index.html + 音效文件）。" : "音效注入还原失败（可手动用 index.html.chiikawa-bak 覆盖回来）。");
+  }
   const reverted = revertSelection(configDir);
   console.log(removed ? "Chiikawa 皮肤已卸载。" : "未发现 Chiikawa 种子目录。");
   console.log(reverted ? "主题选择已还原。" : "（无需还原主题选择）");
@@ -285,6 +397,25 @@ for (const img of IMAGES) {
 console.log(`平台: ${process.platform}${isWin ? "（已合并 Windows 专属覆盖 win.css）" : "（macOS 基础样式，顶栏贴纸保留）"}`);
 console.log(`槽位: ${slot}  目录: ${path.join(appearanceRoot, `${slot}-${updatedAt}`)}`);
 console.log(`已写入 skin.v2.css（重写 ${n} 处图片引用），复制素材 ${copied} 张。`);
+
+// 2b. click sounds (index.html injection)
+if (hasFlag("--no-audio")) {
+  console.log("已按 --no-audio 跳过点击音效注入。");
+} else {
+  const resourcesDir = findResourcesDir();
+  if (!resourcesDir) {
+    console.warn("未定位到 WorkBuddy 安装目录，跳过音效注入（皮肤样式不受影响）。");
+    console.warn("→ 可设置环境变量 WORKBUDDY_RESOURCES_DIR 指向 WorkBuddy 的 resources 目录后重跑。");
+  } else {
+    const r = injectAudio(resourcesDir);
+    if (r.ok) {
+      console.log(`点击音效: ${r.injected ? "已注入 index.html" : "index.html 已有注入"}，复制音效文件 ${r.copied} 个（备份: ${r.backup}）。`);
+      console.log("注意: WorkBuddy 自动更新会重置 index.html，音效消失后重跑本脚本即可恢复。");
+    } else {
+      console.warn("音效注入失败（" + r.reason + "），皮肤样式不受影响。");
+    }
+  }
+}
 
 // 3. auto-select
 if (autoSelect) {

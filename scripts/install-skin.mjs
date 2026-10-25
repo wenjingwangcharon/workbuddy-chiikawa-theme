@@ -1,29 +1,29 @@
 #!/usr/bin/env node
 /**
- * Chiikawa skin installer for WorkBuddy (v2 — native theme-slot method).
+ * Chiikawa skin installer for WorkBuddy (v3 — standalone theme, no slot hijack).
  *
- * How it works (no app.asar patching, update-safe, crash-proof):
- *   1. WorkBuddy's theme list comes from its server catalog; local folders are
- *      never listed. But when applying a theme, WorkBuddy first checks the
- *      local cache file  <configDir>/appearance-resources/<resourceKey>-<updatedAt>/skin.v2.css
- *      and only downloads the official zip when that cache misses.
- *   2. We pre-seed that cache for a slot the user does not use
- *      (default: theme-tkmw7j "和平精英激战金秋"). Selecting that slot in
- *      Settings → Appearance then loads Chiikawa.
- *   3. Platform parity with the original install: the Windows-only override
- *      (theme/chiikawa-skin.win.css, hides sidebar topbar stickers that the
- *      native title bar covers) is merged ONLY on win32; macOS keeps the
- *      base look with stickers visible.
- *   4. PERSISTENCE: WorkBuddy's startup path applies the theme from its own
- *      renderer-side cache and skips the slot's skin.v2.css overlay, which
- *      makes a seeded slot revert to the official look after restart. The
- *      installer therefore also injects chiikawa-boot.js into the on-disk
- *      unpacked renderer/index.html — it re-applies the skin CSS on every
- *      launch (and after every theme-engine style write) and carries the
- *      click sounds.
+ * Install form (same as the original: run once, restart WorkBuddy, done):
+ *   1. Theme css + images + sounds are deployed to a STANDALONE directory
+ *        <configDir>/appearance-resources/theme-chiikawa-1792829518928/
+ *      No official slot (激战金秋 etc.) is touched; any slot seeded by older
+ *      versions is cleaned up and returns to the official skin.
+ *   2. A small payload is INLINED into the on-disk unpacked renderer's
+ *      index.html. The window loads index.html via the ASAR virtual path,
+ *      so relative ./assets/ URLs resolve through the ASAR header and
+ *      external dropped files never load — hence inline.
+ *   3. All images and sounds are embedded as data: URIs. WorkBuddy does
+ *      NOT register a local-file:// protocol handler (verified), so disk
+ *      URLs in css never loaded — data URIs always work.
+ *   4. PERSISTENCE: WorkBuddy applies theme CSS through a constructed
+ *      stylesheet inside document.adoptedStyleSheets, which beats any
+ *      plain <style>. v3's payload therefore keeps its own sheet in
+ *      adoptedStyleSheets and hooks the accessor so it is ALWAYS last
+ *      (highest cascade priority). Whatever the theme engine writes or
+ *      re-applies at startup, the skin stays Chiikawa after restart.
+ *   5. WorkBuddy auto-updates reset index.html → rerun this script.
  *
  * Usage:
- *   node scripts/install-skin.mjs [--slot theme-tkmw7j] [--ts <updatedAt>] [--no-select] [--name "Chiikawa吉伊卡哇"]
+ *   node scripts/install-skin.mjs [--no-audio] [--no-inject]
  *   node scripts/install-skin.mjs --uninstall
  */
 
@@ -35,27 +35,26 @@ import { fileURLToPath } from "node:url";
 
 const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const THEME_DIR = path.join(REPO_DIR, "theme");
-const SLOT_DEFAULT = "theme-tkmw7j";
-const THEME_NAME_DEFAULT = "Chiikawa吉伊卡哇";
-const MARKER = "/* Chiikawa skin (native slot seed) */";
+const STANDALONE_DIR = "theme-chiikawa-1792829518928";
+const THEME_ASSETS_DIRNAME = "Chiikawa吉伊卡哇";
+const MARKER = "/* Chiikawa skin (standalone theme dir) */";
+// markers written by v2 and earlier slot-hijack versions — cleaned up on install
+const LEGACY_SLOT_MARKERS = [
+  "/* Chiikawa skin (native slot seed) */",
+  "/* Chiikawa skin (slot seed) */",
+];
 
 // ---------- args ----------
 const args = process.argv.slice(2);
-function argValue(name, fallback) {
-  const i = args.indexOf(name);
-  return i >= 0 && args[i + 1] ? args[i + 1] : fallback;
-}
 const hasFlag = (name) => args.includes(name);
 if (hasFlag("--help") || hasFlag("-h")) {
-  console.log(`Usage: node scripts/install-skin.mjs [--slot theme-tkmw7j] [--ts <updatedAt>] [--no-select] [--no-inject] [--name "<name>"]
-       node scripts/install-skin.mjs --uninstall [--slot theme-tkmw7j]`);
+  console.log("Usage: node scripts/install-skin.mjs [--no-audio] [--no-inject]");
+  console.log("       node scripts/install-skin.mjs --uninstall");
   process.exit(0);
 }
 const uninstall = hasFlag("--uninstall");
-const slot = argValue("--slot", SLOT_DEFAULT);
-const themeName = argValue("--name", THEME_NAME_DEFAULT);
-const tsOverride = argValue("--ts", null);
-const autoSelect = !hasFlag("--no-select");
+const noAudio = hasFlag("--no-audio");
+const noInject = hasFlag("--no-inject");
 const isWin = process.platform === "win32";
 const isMac = process.platform === "darwin";
 
@@ -73,83 +72,31 @@ function findConfigDir() {
   return null;
 }
 
-// ---------- slot updatedAt from swr cache ----------
-function findUpdatedAtFromCache(configDir, slot) {
-  const storageDir = path.join(configDir, "storage");
-  if (!fs.existsSync(storageDir)) return null;
-  for (const user of fs.readdirSync(storageDir)) {
-    const scoped = path.join(storageDir, user, "scoped");
-    if (!fs.existsSync(scoped)) continue;
-    for (const hash of fs.readdirSync(scoped)) {
-      const swr = path.join(scoped, hash, "swr.json");
-      if (!fs.existsSync(swr)) continue;
-      try {
-        const data = JSON.parse(fs.readFileSync(swr, "utf8"));
-        for (const [key, val] of Object.entries(data)) {
-          const keyStr = Array.isArray(key) ? JSON.stringify(key) : String(key);
-          if (!keyStr.includes("appearance:catalog")) continue;
-          const entries = val && val.data;
-          if (Array.isArray(entries)) {
-            const hit = entries.find((e) => e && e.resourceKey === slot && typeof e.updatedAt === "number");
-            if (hit) return hit.updatedAt;
-          }
-        }
-      } catch {
-        /* ignore unreadable cache files */
-      }
-    }
-  }
-  return null;
+// ---------- CSS assembly ----------
+function readDataUri(relPath, mime) {
+  const p = path.join(THEME_DIR, relPath);
+  if (!fs.existsSync(p)) return null;
+  return `data:${mime};base64,` + fs.readFileSync(p).toString("base64");
 }
 
-// ---------- url scheme detection (local-file://local/ vs local-file:///) ----------
-function detectUrlScheme(configDir) {
-  const root = path.join(configDir, "appearance-resources");
-  if (!fs.existsSync(root)) return "local-file://local/";
-  const candidates = ["theme-tkboqn", "theme-tkbera", "theme-tkmw7j", "theme-tkbdx8"];
-  for (const dir of fs.readdirSync(root)) {
-    if (!candidates.some((c) => dir.startsWith(c))) continue;
-    const v2 = path.join(root, dir, "skin.v2.css");
-    if (!fs.existsSync(v2)) continue;
-    const head = fs.readFileSync(v2, "utf8").slice(0, 200000);
-    if (head.includes("local-file://local/")) return "local-file://local/";
-    if (head.includes("local-file:///")) return "local-file:///";
-  }
-  return "local-file://local/";
-}
-
-function encodeSegments(absPath) {
-  return absPath
-    .replace(/\\/g, "/")
-    .split("/")
-    .filter((s) => s !== "")
-    .map(encodeURIComponent)
-    .join("/");
-}
-
-function rewriteUrls(css, scheme, targetDir, assetsDirName) {
-  const base = `${scheme}${encodeSegments(targetDir)}/${encodeSegments(assetsDirName)}`;
-  let n = 0;
-  const out = css.replace(/url\(\s*(['"]?)\.?\/?([^'")]+\.png)\1\s*\)/g, (_m, _q, name) => {
-    n++;
-    return `url("${base}/${encodeURIComponent(name)}")`;
-  });
-  return { out, n };
-}
-
-// ---------- CSS assembly (platform parity) ----------
-function buildCss(configDir) {
-  const base = fs.readFileSync(path.join(THEME_DIR, "chiikawa-skin.css"), "utf8");
-  let css = base;
+function buildCss() {
+  let css = fs.readFileSync(path.join(THEME_DIR, "chiikawa-skin.css"), "utf8");
   if (isWin) {
-    // Windows only: hide sidebar topbar stickers (covered by native title bar).
-    // macOS keeps them visible, matching the original two-variant install.
     css += "\n\n/* ===== Windows overrides (auto-applied on win32 only) ===== */\n";
     css += fs.readFileSync(path.join(THEME_DIR, "chiikawa-skin.win.css"), "utf8");
   }
-  const assetsDirName = `${themeName}/assets/custom`;
-  const scheme = detectUrlScheme(configDir);
-  return { css, scheme, assetsDirName };
+  // embed every url(*.png) as a data URI (no protocol handler needed)
+  let n = 0;
+  css = css.replace(/url\(\s*(['"]?)\.?\/?([^'")]+\.png)\1\s*\)/g, (_m, _q, name) => {
+    const uri = readDataUri(name, "image/png");
+    if (!uri) {
+      console.warn("警告: 缺少素材", name);
+      return _m;
+    }
+    n++;
+    return `url("${uri}")`;
+  });
+  return { css, n };
 }
 
 const IMAGES = [
@@ -163,30 +110,17 @@ const IMAGES = [
   "stack.png",
 ];
 
-// ---------- renderer payload (inline injection into index.html) ----------
-// The window loads index.html via the ASAR virtual path, so relative
-// ./assets/... URLs resolve through the ASAR header and files merely
-// dropped on disk under app.asar.unpacked NEVER load (verified in the
-// wild: an external <script src> injection silently did nothing). The
-// payload is therefore INLINED as one <script> block; skin CSS text and
-// sound/image URLs (absolute local-file:// into the seeded slot dir)
-// are embedded at install time. Auto-updates reset index.html — rerun.
-const BOOT_TEMPLATE = path.join(THEME_DIR, "chiikawa-boot.js");
-const BOOT_MARKER = "CHIIKAWA-BOOT-INLINE";
-// legacy external tags from earlier versions (cleaned up on upgrade)
-const LEGACY_TAGS = [
-  `<script defer src="./assets/chiikawa-boot.js"></script>`,
-  `<script defer src="./assets/chiikawa-audio.js"></script>`,
-];
 const SOUNDS = [
   "Yoolooko - 乌拉呀哈呀哈乌拉.wav",
   "Yoolooko - 纳尼纳尼.wav",
   "Yoolooko - 曾曾哇嘎乃.wav",
 ];
+
 const SKIN_CSS_FILES = isWin
   ? ["chiikawa-skin.css", "chiikawa-skin.win.css"]
   : ["chiikawa-skin.css"];
 
+// ---------- install dir discovery ----------
 function findResourcesDir() {
   const candidates = [];
   if (process.env.WORKBUDDY_RESOURCES_DIR) candidates.push(process.env.WORKBUDDY_RESOURCES_DIR);
@@ -229,42 +163,78 @@ function rendererIndex(resourcesDir) {
   return path.join(resourcesDir, "app.asar.unpacked", "renderer", "index.html");
 }
 
-function buildInlinePayload(skinCss, assetBase) {
+// ---------- inline payload injection ----------
+const BOOT_TEMPLATE = path.join(THEME_DIR, "chiikawa-boot.js");
+const BOOT_MARKER = "CHIIKAWA-BOOT-INLINE";
+const LEGACY_TAGS = [
+  `<script defer src="./assets/chiikawa-boot.js"></script>`,
+  `<script defer src="./assets/chiikawa-audio.js"></script>`,
+];
+
+function buildInlinePayload(skinCss, sounds) {
   const jsonSafe = (s) => JSON.stringify(s).replace(/<\//g, "<\\/");
-  const soundUrl = (name) => `${assetBase}/${encodeURIComponent(name)}`;
-  const sounds = {
-    success: soundUrl(SOUNDS[0]),
-    question: soundUrl(SOUNDS[1]),
-    failed: soundUrl(SOUNDS[2]),
-  };
   let code = fs.readFileSync(BOOT_TEMPLATE, "utf8");
   code = code
     .replaceAll("__CHIIKAWA_SKIN_CSS__", jsonSafe(skinCss))
-    .replaceAll("__CHIIKAWA_SOUNDS__", jsonSafe(sounds));
+    .replaceAll("__CHIIKAWA_SOUNDS__", sounds === null ? "null" : jsonSafe(sounds));
   if (code.includes("__CHIIKAWA_SKIN_CSS__") || code.includes("__CHIIKAWA_SOUNDS__")) {
     throw new Error("boot template placeholders not fully replaced");
   }
   return `<script>/* ${BOOT_MARKER} */\n${code}\n</script>`;
 }
 
-function injectRendererPayload(resourcesDir, skinCss, assetBase) {
+function extractPayloadJs(htmlPath) {
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const start = html.indexOf(`<script>/* ${BOOT_MARKER} */`);
+  if (start < 0) return null;
+  const codeStart = html.indexOf("\n", start) + 1;
+  const end = html.indexOf("</script>", codeStart);
+  if (end < 0) return null;
+  return html.slice(codeStart, end);
+}
+
+function verifyPayloadSyntax(htmlPath) {
+  const js = extractPayloadJs(htmlPath);
+  if (!js) return { ok: false, reason: "payload block not found" };
+  const tmp = path.join(os.tmpdir(), `chiikawa-payload-check-${Date.now()}.js`);
+  try {
+    fs.writeFileSync(tmp, js, "utf8");
+    execFileSync(process.execPath, ["--check", tmp], { stdio: "pipe" });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e).slice(0, 300) };
+  } finally {
+    try { fs.rmSync(tmp, { force: true }); } catch {}
+  }
+}
+
+function injectRendererPayload(resourcesDir, skinCss, sounds) {
   const htmlPath = rendererIndex(resourcesDir);
   const backupPath = htmlPath + ".chiikawa-bak";
   if (!fs.existsSync(backupPath)) fs.copyFileSync(htmlPath, backupPath);
   let html = fs.readFileSync(htmlPath, "utf8");
   let injected = false;
-  // upgrade: drop legacy external script tags if present
+  // drop legacy external script tags if present
   for (const tag of LEGACY_TAGS) {
     html = html.replace(tag + "\n", "").replace(tag, "");
   }
-  if (!html.includes(BOOT_MARKER)) {
-    if (!html.includes("</head>")) return { ok: false, reason: "index.html 中未找到 </head>" };
-    const payload = buildInlinePayload(skinCss, assetBase);
-    html = html.replace("</head>", payload + "\n</head>");
-    fs.writeFileSync(htmlPath, html, "utf8");
-    injected = true;
+  // replace any existing inline payload block (upgrade path), else insert
+  const existing = html.indexOf(`<script>/* ${BOOT_MARKER} */`);
+  if (existing >= 0) {
+    const end = html.indexOf("</script>", existing);
+    if (end < 0) return { ok: false, reason: "existing payload block malformed" };
+    html = html.slice(0, existing) + buildInlinePayload(skinCss, sounds) + html.slice(end + "</script>".length);
   } else {
-    fs.writeFileSync(htmlPath, html, "utf8");
+    if (!html.includes("</head>")) return { ok: false, reason: "index.html 中未找到 </head>" };
+    html = html.replace("</head>", buildInlinePayload(skinCss, sounds) + "\n</head>");
+    injected = true;
+  }
+  fs.writeFileSync(htmlPath, html, "utf8");
+  const check = verifyPayloadSyntax(htmlPath);
+  if (!check.ok) {
+    // roll back to backup on syntax failure
+    fs.copyFileSync(backupPath, htmlPath);
+    return { ok: false, reason: `payload 语法校验失败，已回滚: ${check.reason}` };
   }
   return { ok: true, injected, backup: backupPath };
 }
@@ -278,7 +248,6 @@ function removeRendererPayload(resourcesDir) {
     } else if (fs.existsSync(htmlPath)) {
       let html = fs.readFileSync(htmlPath, "utf8");
       for (const tag of LEGACY_TAGS) html = html.replace(tag + "\n", "").replace(tag, "");
-      // strip the inline payload (from <script>/* MARKER */ up to its closing tag)
       const start = html.indexOf(`<script>/* ${BOOT_MARKER} */`);
       if (start >= 0) {
         const end = html.indexOf("</script>", start);
@@ -297,75 +266,40 @@ function removeRendererPayload(resourcesDir) {
   return true;
 }
 
-// ---------- running check ----------
-function workbuddyRunning() {
+// ---------- restore official slots previously seeded by v2 ----------
+function isOurSeedCss(cssPath) {
   try {
-    if (isWin) {
-      const out = execFileSync("tasklist", ["/FI", "IMAGENAME eq WorkBuddy.exe", "/NH"], { encoding: "utf8" });
-      return /WorkBuddy\.exe/i.test(out);
-    }
-    if (isMac) {
-      const out = execFileSync("pgrep", ["-f", "WorkBuddy.app/Contents/MacOS"], { encoding: "utf8" });
-      return out.trim().length > 0;
-    }
-  } catch {
-    return false; // pgrep exit code 1 = not running
-  }
-  return false;
-}
-
-// ---------- auto-select (preferences.json) ----------
-function findPreferences(configDir) {
-  const storageDir = path.join(configDir, "storage");
-  if (!fs.existsSync(storageDir)) return null;
-  for (const user of fs.readdirSync(storageDir)) {
-    const m = user.match(/^user-(.+)-personal$/);
-    const prefs = path.join(storageDir, user, "global", "preferences.json");
-    if (m && fs.existsSync(prefs)) return { file: prefs, uid: m[1] };
-  }
-  return null;
-}
-
-function writeSelection(configDir, slot, uid) {
-  const found = findPreferences(configDir);
-  if (!found) return { ok: false, reason: "preferences.json not found" };
-  let prefs;
-  try {
-    prefs = JSON.parse(fs.readFileSync(found.file, "utf8"));
-  } catch (e) {
-    return { ok: false, reason: `preferences.json unreadable: ${e.message}` };
-  }
-  const backup = found.file + ".chiikawa-bak";
-  if (!fs.existsSync(backup)) fs.copyFileSync(found.file, backup);
-  prefs["appearanceTheme"] = slot;
-  prefs["appearance.themeSelection"] = {
-    resourceKey: slot,
-    uid: found.uid,
-    source: "settings-select",
-    revision: Date.now(),
-  };
-  fs.writeFileSync(found.file, JSON.stringify(prefs, null, 2), "utf8");
-  return { ok: true, backup };
-}
-
-function revertSelection(configDir) {
-  const found = findPreferences(configDir);
-  if (!found) return false;
-  const backup = found.file + ".chiikawa-bak";
-  if (fs.existsSync(backup)) {
-    fs.copyFileSync(backup, found.file);
-    return true;
-  }
-  // no backup: just strip our keys
-  try {
-    const prefs = JSON.parse(fs.readFileSync(found.file, "utf8"));
-    delete prefs["appearanceTheme"];
-    delete prefs["appearance.themeSelection"];
-    fs.writeFileSync(found.file, JSON.stringify(prefs, null, 2), "utf8");
-    return true;
+    const head = fs.readFileSync(cssPath, "utf8").slice(0, 200);
+    return LEGACY_SLOT_MARKERS.some((m) => head.startsWith(m)) || head.startsWith(MARKER);
   } catch {
     return false;
   }
+}
+
+function restoreHijackedSlots(appearanceRoot) {
+  const restored = [];
+  if (!fs.existsSync(appearanceRoot)) return restored;
+  for (const dir of fs.readdirSync(appearanceRoot)) {
+    // official slot dirs are theme-<key>-<updatedAt>; ours is theme-chiikawa-1792829518928
+    if (dir === STANDALONE_DIR) continue;
+    if (!/^theme-[a-z0-9._-]+-\d+$/.test(dir)) continue;
+    const dirPath = path.join(appearanceRoot, dir);
+    let cleaned = false;
+    for (const cssName of ["skin.v2.css", "skin.css"]) {
+      const cssPath = path.join(dirPath, cssName);
+      if (fs.existsSync(cssPath) && isOurSeedCss(cssPath)) {
+        fs.rmSync(cssPath, { force: true });
+        cleaned = true;
+      }
+    }
+    const legacyAssets = path.join(dirPath, THEME_ASSETS_DIRNAME);
+    if (fs.existsSync(legacyAssets)) {
+      fs.rmSync(legacyAssets, { recursive: true, force: true });
+      cleaned = true;
+    }
+    if (cleaned) restored.push(dir);
+  }
+  return restored;
 }
 
 // ---------- main ----------
@@ -376,46 +310,27 @@ if (!configDir) {
 }
 const appearanceRoot = path.join(configDir, "appearance-resources");
 fs.mkdirSync(appearanceRoot, { recursive: true });
+const standalonePath = path.join(appearanceRoot, STANDALONE_DIR);
+const assetsTarget = path.join(standalonePath, THEME_ASSETS_DIRNAME, "assets", "custom");
 
 if (uninstall) {
-  let removed = false;
-  for (const dir of fs.readdirSync(appearanceRoot)) {
-    if (!dir.startsWith(slot + "-")) continue;
-    const v2 = path.join(appearanceRoot, dir, "skin.v2.css");
-    if (fs.existsSync(v2) && fs.readFileSync(v2, "utf8").startsWith(MARKER)) {
-      fs.rmSync(path.join(appearanceRoot, dir), { recursive: true, force: true });
-      console.log("已移除:", path.join(appearanceRoot, dir));
-      removed = true;
-    }
-  }
   const resourcesDir = findResourcesDir();
-  if (resourcesDir) {
-    const removed = removeRendererPayload(resourcesDir);
-    console.log(removed ? "启动注入已还原（index.html + boot/皮肤/音效文件）。" : "注入还原失败（可手动用 index.html.chiikawa-bak 覆盖回来）。");
+  const restoredIndex = resourcesDir ? removeRendererPayload(resourcesDir) : false;
+  console.log(restoredIndex ? "启动注入已还原（index.html）。" : "未找到安装目录或注入还原失败（可手动用 index.html.chiikawa-bak 覆盖回来）。");
+  const restored = restoreHijackedSlots(appearanceRoot);
+  if (restored.length) console.log("已恢复官方槽位: " + restored.join(", ") + "（下次使用时自动重新下载官方样式）。");
+  if (fs.existsSync(standalonePath)) {
+    fs.rmSync(standalonePath, { recursive: true, force: true });
+    console.log("已移除独立皮肤目录:", standalonePath);
   }
-  const reverted = revertSelection(configDir);
-  console.log(removed ? "Chiikawa 皮肤已卸载。" : "未发现 Chiikawa 种子目录。");
-  console.log(reverted ? "主题选择已还原。" : "（无需还原主题选择）");
+  console.log("Chiikawa 皮肤已卸载（主题选择未被改动过，无需还原）。");
   process.exit(0);
 }
 
-// 1. resolve slot updatedAt
-let updatedAt = tsOverride ? Number(tsOverride) : findUpdatedAtFromCache(configDir, slot);
-if (!updatedAt) {
-  console.error(`未能从本地缓存解析出 ${slot} 的 updatedAt。`);
-  console.error("请先打开一次 WorkBuddy 的 设置 → 外观 页面（让主题目录缓存生成），然后重新运行本脚本。");
-  console.error("或者手动指定：node scripts/install-skin.mjs --ts <updatedAt毫秒时间戳>");
-  process.exit(1);
-}
-
-// 2. write seed dir
-const targetDir = path.join(appearanceRoot, `${slot}-${updatedAt}`);
-const assetsTarget = path.join(targetDir, themeName, "assets", "custom");
+// 1. deploy standalone theme dir (source of truth copy, css mirrors payload)
 fs.mkdirSync(assetsTarget, { recursive: true });
-
-const { css, scheme, assetsDirName } = buildCss(configDir);
-const { out: finalCss, n } = rewriteUrls(css, scheme, targetDir, assetsDirName);
-fs.writeFileSync(path.join(targetDir, "skin.v2.css"), MARKER + "\n" + finalCss, "utf8");
+const { css, n } = buildCss();
+fs.writeFileSync(path.join(standalonePath, "skin.css"), MARKER + "\n" + css, "utf8");
 
 let copied = 0;
 for (const img of IMAGES) {
@@ -427,9 +342,6 @@ for (const img of IMAGES) {
     console.warn("警告: 缺少素材", img);
   }
 }
-// sounds live in the seeded dir too — the inline payload references them
-// via absolute local-file:// URLs (external files under app.asar.unpacked
-// are NOT loadable through the ASAR virtual path)
 for (const s of SOUNDS) {
   const src = path.join(THEME_DIR, "assets", s);
   if (fs.existsSync(src)) {
@@ -441,43 +353,41 @@ for (const s of SOUNDS) {
 }
 
 console.log(`平台: ${process.platform}${isWin ? "（已合并 Windows 专属覆盖 win.css）" : "（macOS 基础样式，顶栏贴纸保留）"}`);
-console.log(`槽位: ${slot}  目录: ${path.join(appearanceRoot, `${slot}-${updatedAt}`)}`);
-console.log(`已写入 skin.v2.css（重写 ${n} 处图片引用），复制素材 ${copied} 张。`);
+console.log(`皮肤目录: ${standalonePath}`);
+console.log(`已写入 skin.css（图片已内嵌 data URI ×${n}），复制素材 ${copied} 个。`);
 
-// 2b. renderer payload (persistent skin + sounds via index.html injection)
-if (hasFlag("--no-audio") || hasFlag("--no-inject")) {
-  console.log("已按 --no-inject 跳过启动注入（皮肤将依赖槽位应用流程，重启后可能回落官方样式）。");
+// 2. renderer payload (persistent skin + sounds via index.html inline injection)
+if (noInject) {
+  console.log("已按 --no-inject 跳过启动注入（皮肤将不会被应用）。");
 } else {
   const resourcesDir = findResourcesDir();
   if (!resourcesDir) {
-    console.warn("未定位到 WorkBuddy 安装目录，跳过启动注入（槽位皮肤样式不受影响）。");
+    console.warn("未定位到 WorkBuddy 安装目录，跳过启动注入。");
     console.warn("→ 可设置环境变量 WORKBUDDY_RESOURCES_DIR 指向 WorkBuddy 的 resources 目录后重跑。");
   } else {
-    const r = injectRendererPayload(resourcesDir, finalCss, `${scheme}${encodeSegments(targetDir)}/${encodeSegments(assetsDirName)}`);
+    const sounds = noAudio ? null : {
+      success: readDataUri(path.join("assets", SOUNDS[0]), "audio/wav"),
+      question: readDataUri(path.join("assets", SOUNDS[1]), "audio/wav"),
+      failed: readDataUri(path.join("assets", SOUNDS[2]), "audio/wav"),
+    };
+    const r = injectRendererPayload(resourcesDir, css, sounds);
     if (r.ok) {
-      console.log(`启动注入: ${r.injected ? "已内联注入 index.html" : "index.html 已有注入"}（备份: ${r.backup}）。`);
+      const payloadLen = extractPayloadJs(rendererIndex(resourcesDir))?.length ?? 0;
+      console.log(`启动注入: ${r.injected ? "已内联注入 index.html" : "已更新 index.html 中的注入"}（payload ${(payloadLen / 1024 / 1024).toFixed(2)} MB，备份: ${r.backup}，语法校验通过）。`);
       console.log("注意: WorkBuddy 自动更新会重置 index.html，注入消失后重跑本脚本即可恢复。");
     } else {
-      console.warn("启动注入失败（" + r.reason + "），槽位皮肤样式不受影响。");
+      console.warn("启动注入失败（" + r.reason + "）。");
+      process.exitCode = 1;
     }
   }
 }
 
-// 3. auto-select
-if (autoSelect) {
-  if (workbuddyRunning()) {
-    console.log("");
-    console.log("WorkBuddy 正在运行，跳过自动切换主题（运行中修改会被覆盖）。");
-    console.log("→ 完全退出 WorkBuddy 后重新运行本脚本，或重启后在 设置 → 外观 点一次『该主题』即可。");
-  } else {
-    const r = writeSelection(configDir, slot);
-    if (r.ok) {
-      console.log("已自动将主题切换为该槽位（备份: " + r.backup + "）。重启 WorkBuddy 即生效。");
-    } else {
-      console.log("自动切换主题失败（" + r.reason + "）。重启后在 设置 → 外观 点一次『该主题』即可。");
-    }
-  }
+// 3. restore any slot we hijacked in older versions
+const restored = restoreHijackedSlots(appearanceRoot);
+if (restored.length) {
+  console.log("已恢复官方槽位（移除旧版种子）: " + restored.join(", "));
 }
 
 console.log("");
-console.log("完成。列表里该主题卡片的封面图仍是官方预览图，选中后实际加载的是 Chiikawa。");
+console.log("完成。重启 WorkBuddy 即生效；无需在设置里选择任何皮肤。");
+console.log("开关（WorkBuddy 控制台）: __CHIIKAWA_SKIN__.setEnabled(false) / __CHIIKAWA_AUDIO__.setEnabled(false)");

@@ -2,8 +2,8 @@
   "use strict";
 
   // ======================================================================
-  // Chiikawa boot payload — INLINED into renderer/index.html by the
-  // installer (two placeholder tokens below are replaced at install time
+  // Chiikawa boot payload (v3) — INLINED into renderer/index.html by the
+  // installer (the placeholder tokens below are replaced at install time
   // with JSON-encoded skin CSS text and sound URLs).
   //
   // Why inline? The window loads index.html via the ASAR virtual path
@@ -11,40 +11,66 @@
   // through the ASAR header, and files we merely drop on disk under
   // app.asar.unpacked are NOT in that header — an external
   // <script src="./assets/chiikawa-boot.js"> therefore never loads.
-  // Inline script content cannot fail to load, so everything (skin CSS
-  // + click sounds) lives here, and images/sounds are referenced via
-  // absolute local-file:// URLs into the seeded appearance-resources dir.
+  // Inline script content cannot fail to load; all images and sounds are
+  // embedded as data: URIs at install time (WorkBuddy registers no custom
+  // file protocol, so disk URLs in css would never load).
   //
-  //   1. Skin CSS: creates a <style> and a MutationObserver keeps it as
-  //      the LAST child of <head>, so it always wins the cascade against
-  //      theme-engine styles that are appended later (this is what makes
-  //      the skin survive restarts — the startup path applies the theme
-  //      from the renderer's own cache and would otherwise never read
-  //      the seeded skin.v2.css overlay).
-  //   2. Click sounds for agent-card state changes / waiting questions.
+  // v3 persistence strategy (why the v2 <style>+MutationObserver lost):
+  // WorkBuddy's skin manager applies theme CSS through a CONSTRUCTED
+  // stylesheet stored in document.adoptedStyleSheets. Entries there beat
+  // ANY <style>/<link> in the document regardless of order, so a plain
+  // injected <style> can never win after the engine writes official css.
+  // Fix: we keep our OWN CSSStyleSheet inside adoptedStyleSheets too, and
+  // hook the adoptedStyleSheets accessor so our sheet is ALWAYS last in
+  // the array (last = highest cascade priority). Whatever the engine
+  // writes, applies or clears, the skin stays Chiikawa on every launch.
   //
   // Toggles (WorkBuddy devtools console):
   //   __CHIIKAWA_SKIN__.setEnabled(false)   // disable skin CSS
   //   __CHIIKAWA_AUDIO__.setEnabled(false)  // disable sounds
   // ======================================================================
 
+  if (window.__CHIIKAWA_BOOT_V3__) return;
+  window.__CHIIKAWA_BOOT_V3__ = true;
+
   const SKIN_CSS = __CHIIKAWA_SKIN_CSS__;
-  const SOUNDS = __CHIIKAWA_SOUNDS__;
+  const SOUNDS = __CHIIKAWA_SOUNDS__ || null;
 
   const SKIN_ENABLED_KEY = "WORKBUDDY_CHIIKAWA_SKIN_ENABLED";
   const SOUND_ENABLED_KEY = "WORKBUDDY_CHIIKAWA_SOUND_ENABLED";
   const VOLUME_KEY = "WORKBUDDY_CHIIKAWA_SOUND_VOLUME";
   const STYLE_ID = "chiikawa-skin-style";
 
-  // ---------------- skin CSS ----------------
   function skinEnabled() {
-    return localStorage.getItem(SKIN_ENABLED_KEY) !== "false";
+    try { return localStorage.getItem(SKIN_ENABLED_KEY) !== "false"; } catch { return true; }
   }
 
-  function ensureSkinLast() {
+  // ---------------- skin CSS ----------------
+  let adoptedSheet = null;   // CSSStyleSheet path
+  let protoDesc = null;      // original adoptedStyleSheets descriptor
+  let styleEl = null;        // <style> fallback path
+
+  function placeSheetLast(arr) {
+    const list = Array.isArray(arr) ? arr.filter((s) => s !== adoptedSheet) : [];
+    if (!skinEnabled()) return list;
+    return list.concat(adoptedSheet);
+  }
+
+  function startSkinAdopted() {
+    adoptedSheet = new CSSStyleSheet();
+    adoptedSheet.replaceSync(SKIN_CSS);
+    protoDesc = Object.getOwnPropertyDescriptor(Document.prototype, "adoptedStyleSheets");
+    if (!protoDesc || typeof protoDesc.get !== "function") throw new Error("adoptedStyleSheets accessor unavailable");
+    Object.defineProperty(document, "adoptedStyleSheets", {
+      configurable: true,
+      get() { return placeSheetLast(protoDesc.get.call(document)); },
+      set(v) { protoDesc.set.call(document, placeSheetLast(v)); },
+    });
+  }
+
+  function ensureStyleLast() {
     if (!skinEnabled()) return;
     if (!document.head) return;
-    let styleEl = document.getElementById(STYLE_ID);
     if (!styleEl) {
       styleEl = document.createElement("style");
       styleEl.id = STYLE_ID;
@@ -53,26 +79,41 @@
       document.head.appendChild(styleEl);
       return;
     }
-    // keep our style as the LAST child of <head> so it wins the cascade
-    if (document.head.lastElementChild !== styleEl) {
-      document.head.appendChild(styleEl);
+    if (document.head.lastElementChild !== styleEl) document.head.appendChild(styleEl);
+  }
+
+  function startSkinFallback() {
+    ensureStyleLast();
+    new MutationObserver(ensureStyleLast).observe(document.head, { childList: true });
+  }
+
+  function removeSkinVisual() {
+    if (adoptedSheet && protoDesc) {
+      const cur = protoDesc.get.call(document) || [];
+      protoDesc.set.call(document, cur.filter((s) => s !== adoptedSheet));
     }
+    if (styleEl) { styleEl.remove(); styleEl = null; }
   }
 
   function startSkin() {
-    ensureSkinLast();
-    const observer = new MutationObserver(ensureSkinLast);
-    observer.observe(document.head, { childList: true });
+    let viaAdopted = false;
+    try {
+      if (typeof CSSStyleSheet !== "undefined" && "adoptedStyleSheets" in Document.prototype) {
+        startSkinAdopted();
+        viaAdopted = true;
+      }
+    } catch (e) {
+      viaAdopted = false;
+    }
+    if (!viaAdopted) startSkinFallback();
     window.__CHIIKAWA_SKIN__ = {
-      setEnabled: function (enabled) {
-        localStorage.setItem(SKIN_ENABLED_KEY, String(Boolean(enabled)));
-        if (enabled) ensureSkinLast();
-        else {
-          const el = document.getElementById(STYLE_ID);
-          if (el) el.remove();
-        }
-      },
       isEnabled: skinEnabled,
+      setEnabled: function (enabled) {
+        try { localStorage.setItem(SKIN_ENABLED_KEY, String(Boolean(enabled))); } catch {}
+        if (!enabled) removeSkinVisual();
+        else if (viaAdopted) protoDesc.set.call(document, placeSheetLast(protoDesc.get.call(document)));
+        else ensureStyleLast();
+      },
     };
   }
 
@@ -82,21 +123,15 @@
   const ACTIVE_STATES = new Set(["working", "pending"]);
   const TRAILING_STATUS_SELECTOR = '[class*="_trailingStatus_"]';
 
-  const successAudio = new Audio(SOUNDS.success);
-  const questionAudio = new Audio(SOUNDS.question);
-  const failedAudio = new Audio(SOUNDS.failed);
-
+  let successAudio, questionAudio, failedAudio;
   const cardStates = new Map();
   let scanTimer = 0;
   let lastPlayedAt = 0;
   let questionScanInitialized = false;
   let questionWasWaiting = false;
-  successAudio.preload = "auto";
-  questionAudio.preload = "auto";
-  failedAudio.preload = "auto";
 
   function isSoundEnabled() {
-    return localStorage.getItem(SOUND_ENABLED_KEY) !== "false";
+    try { return localStorage.getItem(SOUND_ENABLED_KEY) !== "false"; } catch { return true; }
   }
 
   function getVolume() {
@@ -145,9 +180,7 @@
     lastPlayedAt = now;
     stopAllAudio();
     audio.volume = getVolume();
-    audio.play().catch(function (error) {
-      console.warn("[Chiikawa sound] 播放失败，可能尚未获得音频播放权限。", error);
-    });
+    audio.play().catch(function () { /* autoplay may be blocked until first user gesture */ });
   }
 
   function playSuccess() { play(successAudio); }
@@ -191,6 +224,14 @@
   }
 
   function startAudio() {
+    try {
+      successAudio = new Audio(SOUNDS.success);
+      questionAudio = new Audio(SOUNDS.question);
+      failedAudio = new Audio(SOUNDS.failed);
+      [successAudio, questionAudio, failedAudio].forEach(function (a) { a.preload = "auto"; });
+    } catch (e) {
+      return;
+    }
     scan();
     var observer = new MutationObserver(scheduleScan);
     observer.observe(document.body, {
@@ -216,8 +257,8 @@
   }
 
   function start() {
-    startSkin();
-    startAudio();
+    try { startSkin(); } catch (e) { console.warn("[Chiikawa] skin boot failed:", e); }
+    if (SOUNDS) try { startAudio(); } catch (e) { console.warn("[Chiikawa] audio boot failed:", e); }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });

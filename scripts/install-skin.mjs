@@ -163,23 +163,21 @@ const IMAGES = [
   "stack.png",
 ];
 
-// ---------- renderer payload (index.html injection) ----------
-// The native theme-slot method is pure CSS and WorkBuddy's STARTUP path
-// applies the theme from its own renderer-side cache (Service Worker zip
-// cache) and never re-reads the main-process skin.v2.css overlay — that is
-// why a seeded slot would revert to the official look after every restart.
-// Fix: inject ONE <script defer src="./assets/chiikawa-boot.js"> into the
-// on-disk unpacked renderer/index.html. chiikawa-boot.js then injects the
-// skin CSS links itself (re-appending them after every theme-engine write)
-// AND provides the click sounds. This touches the app install dir only;
-// a WorkBuddy auto-update re-extracts app.asar.unpacked and wipes it —
-// just re-run this script to restore.
-const BOOT_SCRIPT = "chiikawa-boot.js";
-const BOOT_TAG = `<script defer src="./assets/${BOOT_SCRIPT}"></script>`;
-const BOOT_MARKER = "chiikawa-boot.js";
-// legacy tag from the audio-only era (cleaned up on upgrade/uninstall)
-const AUDIO_SCRIPT = "chiikawa-audio.js";
-const AUDIO_TAG = `<script defer src="./assets/${AUDIO_SCRIPT}"></script>`;
+// ---------- renderer payload (inline injection into index.html) ----------
+// The window loads index.html via the ASAR virtual path, so relative
+// ./assets/... URLs resolve through the ASAR header and files merely
+// dropped on disk under app.asar.unpacked NEVER load (verified in the
+// wild: an external <script src> injection silently did nothing). The
+// payload is therefore INLINED as one <script> block; skin CSS text and
+// sound/image URLs (absolute local-file:// into the seeded slot dir)
+// are embedded at install time. Auto-updates reset index.html — rerun.
+const BOOT_TEMPLATE = path.join(THEME_DIR, "chiikawa-boot.js");
+const BOOT_MARKER = "CHIIKAWA-BOOT-INLINE";
+// legacy external tags from earlier versions (cleaned up on upgrade)
+const LEGACY_TAGS = [
+  `<script defer src="./assets/chiikawa-boot.js"></script>`,
+  `<script defer src="./assets/chiikawa-audio.js"></script>`,
+];
 const SOUNDS = [
   "Yoolooko - 乌拉呀哈呀哈乌拉.wav",
   "Yoolooko - 纳尼纳尼.wav",
@@ -231,41 +229,44 @@ function rendererIndex(resourcesDir) {
   return path.join(resourcesDir, "app.asar.unpacked", "renderer", "index.html");
 }
 
-function injectRendererPayload(resourcesDir) {
+function buildInlinePayload(skinCss, assetBase) {
+  const jsonSafe = (s) => JSON.stringify(s).replace(/<\//g, "<\\/");
+  const soundUrl = (name) => `${assetBase}/${encodeURIComponent(name)}`;
+  const sounds = {
+    success: soundUrl(SOUNDS[0]),
+    question: soundUrl(SOUNDS[1]),
+    failed: soundUrl(SOUNDS[2]),
+  };
+  let code = fs.readFileSync(BOOT_TEMPLATE, "utf8");
+  code = code
+    .replaceAll("__CHIIKAWA_SKIN_CSS__", jsonSafe(skinCss))
+    .replaceAll("__CHIIKAWA_SOUNDS__", jsonSafe(sounds));
+  if (code.includes("__CHIIKAWA_SKIN_CSS__") || code.includes("__CHIIKAWA_SOUNDS__")) {
+    throw new Error("boot template placeholders not fully replaced");
+  }
+  return `<script>/* ${BOOT_MARKER} */\n${code}\n</script>`;
+}
+
+function injectRendererPayload(resourcesDir, skinCss, assetBase) {
   const htmlPath = rendererIndex(resourcesDir);
   const backupPath = htmlPath + ".chiikawa-bak";
   if (!fs.existsSync(backupPath)) fs.copyFileSync(htmlPath, backupPath);
   let html = fs.readFileSync(htmlPath, "utf8");
   let injected = false;
-  // upgrade: drop the legacy audio-only tag if present
-  if (html.includes(AUDIO_TAG)) {
-    html = html.replace(AUDIO_TAG + "\n", "").replace(AUDIO_TAG, "");
+  // upgrade: drop legacy external script tags if present
+  for (const tag of LEGACY_TAGS) {
+    html = html.replace(tag + "\n", "").replace(tag, "");
   }
   if (!html.includes(BOOT_MARKER)) {
     if (!html.includes("</head>")) return { ok: false, reason: "index.html 中未找到 </head>" };
-    html = html.replace("</head>", BOOT_TAG + "\n</head>");
+    const payload = buildInlinePayload(skinCss, assetBase);
+    html = html.replace("</head>", payload + "\n</head>");
     fs.writeFileSync(htmlPath, html, "utf8");
     injected = true;
   } else {
     fs.writeFileSync(htmlPath, html, "utf8");
   }
-  const assetsDir = path.join(resourcesDir, "app.asar.unpacked", "renderer", "assets");
-  fs.mkdirSync(assetsDir, { recursive: true });
-  let copied = 0;
-  const copyIn = (srcDir, name, warn) => {
-    const src = path.join(srcDir, name);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(assetsDir, name));
-      copied++;
-    } else if (warn) {
-      console.warn("警告: 缺少素材", name);
-    }
-  };
-  copyIn(THEME_DIR, BOOT_SCRIPT, true);
-  for (const c of SKIN_CSS_FILES) copyIn(THEME_DIR, c, true);
-  for (const img of IMAGES) copyIn(THEME_DIR, img, true);
-  for (const s of SOUNDS) copyIn(path.join(THEME_DIR, "assets"), s, true);
-  return { ok: true, injected, copied, backup: backupPath };
+  return { ok: true, injected, backup: backupPath };
 }
 
 function removeRendererPayload(resourcesDir) {
@@ -276,16 +277,21 @@ function removeRendererPayload(resourcesDir) {
       fs.copyFileSync(backupPath, htmlPath);
     } else if (fs.existsSync(htmlPath)) {
       let html = fs.readFileSync(htmlPath, "utf8");
-      html = html
-        .replace(BOOT_TAG + "\n", "").replace(BOOT_TAG, "")
-        .replace(AUDIO_TAG + "\n", "").replace(AUDIO_TAG, "");
+      for (const tag of LEGACY_TAGS) html = html.replace(tag + "\n", "").replace(tag, "");
+      // strip the inline payload (from <script>/* MARKER */ up to its closing tag)
+      const start = html.indexOf(`<script>/* ${BOOT_MARKER} */`);
+      if (start >= 0) {
+        const end = html.indexOf("</script>", start);
+        if (end >= 0) html = html.slice(0, start) + html.slice(end + "</script>".length);
+      }
       fs.writeFileSync(htmlPath, html, "utf8");
     }
   } catch {
     return false;
   }
+  // clean legacy external payload files from earlier versions
   const assetsDir = path.join(resourcesDir, "app.asar.unpacked", "renderer", "assets");
-  for (const f of [BOOT_SCRIPT, AUDIO_SCRIPT, ...SKIN_CSS_FILES, ...IMAGES, ...SOUNDS]) {
+  for (const f of ["chiikawa-boot.js", "chiikawa-audio.js", ...SKIN_CSS_FILES, ...IMAGES, ...SOUNDS]) {
     try { fs.rmSync(path.join(assetsDir, f), { force: true }); } catch {}
   }
   return true;
@@ -421,6 +427,18 @@ for (const img of IMAGES) {
     console.warn("警告: 缺少素材", img);
   }
 }
+// sounds live in the seeded dir too — the inline payload references them
+// via absolute local-file:// URLs (external files under app.asar.unpacked
+// are NOT loadable through the ASAR virtual path)
+for (const s of SOUNDS) {
+  const src = path.join(THEME_DIR, "assets", s);
+  if (fs.existsSync(src)) {
+    fs.copyFileSync(src, path.join(assetsTarget, s));
+    copied++;
+  } else {
+    console.warn("警告: 缺少音效素材", s);
+  }
+}
 
 console.log(`平台: ${process.platform}${isWin ? "（已合并 Windows 专属覆盖 win.css）" : "（macOS 基础样式，顶栏贴纸保留）"}`);
 console.log(`槽位: ${slot}  目录: ${path.join(appearanceRoot, `${slot}-${updatedAt}`)}`);
@@ -435,9 +453,9 @@ if (hasFlag("--no-audio") || hasFlag("--no-inject")) {
     console.warn("未定位到 WorkBuddy 安装目录，跳过启动注入（槽位皮肤样式不受影响）。");
     console.warn("→ 可设置环境变量 WORKBUDDY_RESOURCES_DIR 指向 WorkBuddy 的 resources 目录后重跑。");
   } else {
-    const r = injectRendererPayload(resourcesDir);
+    const r = injectRendererPayload(resourcesDir, finalCss, `${scheme}${encodeSegments(targetDir)}/${encodeSegments(assetsDirName)}`);
     if (r.ok) {
-      console.log(`启动注入: ${r.injected ? "已注入 index.html" : "index.html 已有注入"}，复制文件 ${r.copied} 个（备份: ${r.backup}）。`);
+      console.log(`启动注入: ${r.injected ? "已内联注入 index.html" : "index.html 已有注入"}（备份: ${r.backup}）。`);
       console.log("注意: WorkBuddy 自动更新会重置 index.html，注入消失后重跑本脚本即可恢复。");
     } else {
       console.warn("启动注入失败（" + r.reason + "），槽位皮肤样式不受影响。");

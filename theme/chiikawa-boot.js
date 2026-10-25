@@ -2,69 +2,61 @@
   "use strict";
 
   // ======================================================================
-  // Chiikawa boot script for WorkBuddy
-  // Injected as a single <script defer> into the on-disk unpacked
-  // renderer/index.html. It provides two things that the pure-CSS native
-  // theme-slot seed cannot:
-  //   1. Persistent skin CSS — WorkBuddy's startup path applies the theme
-  //      from its own renderer-side cache (Service Worker zip cache) and
-  //      skips the main-process skin.v2.css overlay. By injecting the skin
-  //      CSS from here we guarantee it is present on EVERY launch, and a
-  //      MutationObserver re-appends it to the end of <head> whenever the
-  //      theme engine writes new styles, so it always wins the cascade.
+  // Chiikawa boot payload — INLINED into renderer/index.html by the
+  // installer (two placeholder tokens below are replaced at install time
+  // with JSON-encoded skin CSS text and sound URLs).
+  //
+  // Why inline? The window loads index.html via the ASAR virtual path
+  // (app.asar/renderer/index.html). Relative ./assets/... URLs resolve
+  // through the ASAR header, and files we merely drop on disk under
+  // app.asar.unpacked are NOT in that header — an external
+  // <script src="./assets/chiikawa-boot.js"> therefore never loads.
+  // Inline script content cannot fail to load, so everything (skin CSS
+  // + click sounds) lives here, and images/sounds are referenced via
+  // absolute local-file:// URLs into the seeded appearance-resources dir.
+  //
+  //   1. Skin CSS: creates a <style> and a MutationObserver keeps it as
+  //      the LAST child of <head>, so it always wins the cascade against
+  //      theme-engine styles that are appended later (this is what makes
+  //      the skin survive restarts — the startup path applies the theme
+  //      from the renderer's own cache and would otherwise never read
+  //      the seeded skin.v2.css overlay).
   //   2. Click sounds for agent-card state changes / waiting questions.
-  // Toggle skin:  localStorage.setItem("WORKBUDDY_CHIIKAWA_SKIN_ENABLED","false")
-  // Toggle sound: localStorage.setItem("WORKBUDDY_CHIIKAWA_SOUND_ENABLED","false")
-  // API:          window.__CHIIKAWA_AUDIO__ / window.__CHIIKAWA_SKIN__
+  //
+  // Toggles (WorkBuddy devtools console):
+  //   __CHIIKAWA_SKIN__.setEnabled(false)   // disable skin CSS
+  //   __CHIIKAWA_AUDIO__.setEnabled(false)  // disable sounds
   // ======================================================================
 
-  const SKIN_ENABLED_KEY = "WORKBUDDY_CHIIKAWA_SKIN_ENABLED";
-  const SKIN_BASE_CSS = "./assets/chiikawa-skin.css";
-  const SKIN_WIN_CSS = "./assets/chiikawa-skin.win.css";
-  const SKIN_LINK_ATTR = "data-chiikawa-skin";
+  const SKIN_CSS = __CHIIKAWA_SKIN_CSS__;
+  const SOUNDS = __CHIIKAWA_SOUNDS__;
 
-  const isWindows = /Win/i.test(navigator.userAgent) && !/Mac|Linux|Android|iPhone/i.test(navigator.userAgent);
+  const SKIN_ENABLED_KEY = "WORKBUDDY_CHIIKAWA_SKIN_ENABLED";
+  const SOUND_ENABLED_KEY = "WORKBUDDY_CHIIKAWA_SOUND_ENABLED";
+  const VOLUME_KEY = "WORKBUDDY_CHIIKAWA_SOUND_VOLUME";
+  const STYLE_ID = "chiikawa-skin-style";
 
   // ---------------- skin CSS ----------------
   function skinEnabled() {
     return localStorage.getItem(SKIN_ENABLED_KEY) !== "false";
   }
 
-  function createSkinLinks() {
-    const links = [];
-    const base = document.createElement("link");
-    base.rel = "stylesheet";
-    base.href = SKIN_BASE_CSS;
-    base.setAttribute(SKIN_LINK_ATTR, "base");
-    links.push(base);
-    if (isWindows) {
-      // Windows only: hide sidebar topbar stickers (covered by the native
-      // title bar). macOS keeps them visible — same parity as the installer.
-      const win = document.createElement("link");
-      win.rel = "stylesheet";
-      win.href = SKIN_WIN_CSS;
-      win.setAttribute(SKIN_LINK_ATTR, "win");
-      links.push(win);
-    }
-    return links;
-  }
-
   function ensureSkinLast() {
     if (!skinEnabled()) return;
-    let links = Array.from(document.querySelectorAll(`link[${SKIN_LINK_ATTR}]`));
-    if (!links.length) {
-      if (!document.head) return;
-      links = createSkinLinks();
-      links.forEach((l) => document.head.appendChild(l));
+    if (!document.head) return;
+    let styleEl = document.getElementById(STYLE_ID);
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = STYLE_ID;
+      styleEl.setAttribute("data-chiikawa-skin", "1");
+      styleEl.textContent = SKIN_CSS;
+      document.head.appendChild(styleEl);
       return;
     }
-    // keep our links as the final contiguous block of <head> so they win
-    const children = Array.from(document.head.children);
-    const tail = children.slice(-links.length);
-    const isTail =
-      links.every((l) => tail.includes(l)) &&
-      tail.every((el) => el.hasAttribute(SKIN_LINK_ATTR));
-    if (!isTail) links.forEach((l) => document.head.appendChild(l));
+    // keep our style as the LAST child of <head> so it wins the cascade
+    if (document.head.lastElementChild !== styleEl) {
+      document.head.appendChild(styleEl);
+    }
   }
 
   function startSkin() {
@@ -75,7 +67,10 @@
       setEnabled: function (enabled) {
         localStorage.setItem(SKIN_ENABLED_KEY, String(Boolean(enabled)));
         if (enabled) ensureSkinLast();
-        else Array.from(document.querySelectorAll(`link[${SKIN_LINK_ATTR}]`)).forEach((l) => l.remove());
+        else {
+          const el = document.getElementById(STYLE_ID);
+          if (el) el.remove();
+        }
       },
       isEnabled: skinEnabled,
     };
@@ -84,14 +79,12 @@
   // ---------------- click sounds ----------------
   const CARD_SELECTOR = ".conversation-agent-card";
   const WAITING_QUESTION_SELECTOR = ".ask-user-question--waiting";
-  const SOUND_ENABLED_KEY = "WORKBUDDY_CHIIKAWA_SOUND_ENABLED";
-  const VOLUME_KEY = "WORKBUDDY_CHIIKAWA_SOUND_VOLUME";
   const ACTIVE_STATES = new Set(["working", "pending"]);
   const TRAILING_STATUS_SELECTOR = '[class*="_trailingStatus_"]';
 
-  const successAudio = new Audio("./assets/Yoolooko - 乌拉呀哈呀哈乌拉.wav");
-  const questionAudio = new Audio("./assets/Yoolooko - 纳尼纳尼.wav");
-  const failedAudio = new Audio("./assets/Yoolooko - 曾曾哇嘎乃.wav");
+  const successAudio = new Audio(SOUNDS.success);
+  const questionAudio = new Audio(SOUNDS.question);
+  const failedAudio = new Audio(SOUNDS.failed);
 
   const cardStates = new Map();
   let scanTimer = 0;

@@ -14,6 +14,13 @@
  *      (theme/chiikawa-skin.win.css, hides sidebar topbar stickers that the
  *      native title bar covers) is merged ONLY on win32; macOS keeps the
  *      base look with stickers visible.
+ *   4. PERSISTENCE: WorkBuddy's startup path applies the theme from its own
+ *      renderer-side cache and skips the slot's skin.v2.css overlay, which
+ *      makes a seeded slot revert to the official look after restart. The
+ *      installer therefore also injects chiikawa-boot.js into the on-disk
+ *      unpacked renderer/index.html — it re-applies the skin CSS on every
+ *      launch (and after every theme-engine style write) and carries the
+ *      click sounds.
  *
  * Usage:
  *   node scripts/install-skin.mjs [--slot theme-tkmw7j] [--ts <updatedAt>] [--no-select] [--name "Chiikawa吉伊卡哇"]
@@ -40,7 +47,7 @@ function argValue(name, fallback) {
 }
 const hasFlag = (name) => args.includes(name);
 if (hasFlag("--help") || hasFlag("-h")) {
-  console.log(`Usage: node scripts/install-skin.mjs [--slot theme-tkmw7j] [--ts <updatedAt>] [--no-select] [--no-audio] [--name "<name>"]
+  console.log(`Usage: node scripts/install-skin.mjs [--slot theme-tkmw7j] [--ts <updatedAt>] [--no-select] [--no-inject] [--name "<name>"]
        node scripts/install-skin.mjs --uninstall [--slot theme-tkmw7j]`);
   process.exit(0);
 }
@@ -156,20 +163,31 @@ const IMAGES = [
   "stack.png",
 ];
 
-// ---------- click sounds (index.html injection) ----------
-// The native theme-slot method is pure CSS and cannot carry JS. Click sounds
-// therefore need a tiny one-line injection into the on-disk unpacked
-// renderer/index.html (script tag + audio assets). This is the only step that
-// touches the app install dir; a WorkBuddy auto-update re-extracts
-// app.asar.unpacked and wipes it — just re-run this script to restore.
+// ---------- renderer payload (index.html injection) ----------
+// The native theme-slot method is pure CSS and WorkBuddy's STARTUP path
+// applies the theme from its own renderer-side cache (Service Worker zip
+// cache) and never re-reads the main-process skin.v2.css overlay — that is
+// why a seeded slot would revert to the official look after every restart.
+// Fix: inject ONE <script defer src="./assets/chiikawa-boot.js"> into the
+// on-disk unpacked renderer/index.html. chiikawa-boot.js then injects the
+// skin CSS links itself (re-appending them after every theme-engine write)
+// AND provides the click sounds. This touches the app install dir only;
+// a WorkBuddy auto-update re-extracts app.asar.unpacked and wipes it —
+// just re-run this script to restore.
+const BOOT_SCRIPT = "chiikawa-boot.js";
+const BOOT_TAG = `<script defer src="./assets/${BOOT_SCRIPT}"></script>`;
+const BOOT_MARKER = "chiikawa-boot.js";
+// legacy tag from the audio-only era (cleaned up on upgrade/uninstall)
 const AUDIO_SCRIPT = "chiikawa-audio.js";
 const AUDIO_TAG = `<script defer src="./assets/${AUDIO_SCRIPT}"></script>`;
-const AUDIO_MARKER = "chiikawa-audio.js";
 const SOUNDS = [
   "Yoolooko - 乌拉呀哈呀哈乌拉.wav",
   "Yoolooko - 纳尼纳尼.wav",
   "Yoolooko - 曾曾哇嘎乃.wav",
 ];
+const SKIN_CSS_FILES = isWin
+  ? ["chiikawa-skin.css", "chiikawa-skin.win.css"]
+  : ["chiikawa-skin.css"];
 
 function findResourcesDir() {
   const candidates = [];
@@ -213,36 +231,44 @@ function rendererIndex(resourcesDir) {
   return path.join(resourcesDir, "app.asar.unpacked", "renderer", "index.html");
 }
 
-function injectAudio(resourcesDir) {
+function injectRendererPayload(resourcesDir) {
   const htmlPath = rendererIndex(resourcesDir);
   const backupPath = htmlPath + ".chiikawa-bak";
   if (!fs.existsSync(backupPath)) fs.copyFileSync(htmlPath, backupPath);
   let html = fs.readFileSync(htmlPath, "utf8");
   let injected = false;
-  if (!html.includes(AUDIO_MARKER)) {
+  // upgrade: drop the legacy audio-only tag if present
+  if (html.includes(AUDIO_TAG)) {
+    html = html.replace(AUDIO_TAG + "\n", "").replace(AUDIO_TAG, "");
+  }
+  if (!html.includes(BOOT_MARKER)) {
     if (!html.includes("</head>")) return { ok: false, reason: "index.html 中未找到 </head>" };
-    html = html.replace("</head>", AUDIO_TAG + "\n</head>");
+    html = html.replace("</head>", BOOT_TAG + "\n</head>");
     fs.writeFileSync(htmlPath, html, "utf8");
     injected = true;
+  } else {
+    fs.writeFileSync(htmlPath, html, "utf8");
   }
   const assetsDir = path.join(resourcesDir, "app.asar.unpacked", "renderer", "assets");
   fs.mkdirSync(assetsDir, { recursive: true });
   let copied = 0;
-  fs.copyFileSync(path.join(THEME_DIR, AUDIO_SCRIPT), path.join(assetsDir, AUDIO_SCRIPT));
-  copied++;
-  for (const s of SOUNDS) {
-    const src = path.join(THEME_DIR, "assets", s);
+  const copyIn = (srcDir, name, warn) => {
+    const src = path.join(srcDir, name);
     if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(assetsDir, s));
+      fs.copyFileSync(src, path.join(assetsDir, name));
       copied++;
-    } else {
-      console.warn("警告: 缺少音效素材", s);
+    } else if (warn) {
+      console.warn("警告: 缺少素材", name);
     }
-  }
+  };
+  copyIn(THEME_DIR, BOOT_SCRIPT, true);
+  for (const c of SKIN_CSS_FILES) copyIn(THEME_DIR, c, true);
+  for (const img of IMAGES) copyIn(THEME_DIR, img, true);
+  for (const s of SOUNDS) copyIn(path.join(THEME_DIR, "assets"), s, true);
   return { ok: true, injected, copied, backup: backupPath };
 }
 
-function removeAudio(resourcesDir) {
+function removeRendererPayload(resourcesDir) {
   const htmlPath = rendererIndex(resourcesDir);
   const backupPath = htmlPath + ".chiikawa-bak";
   try {
@@ -250,14 +276,16 @@ function removeAudio(resourcesDir) {
       fs.copyFileSync(backupPath, htmlPath);
     } else if (fs.existsSync(htmlPath)) {
       let html = fs.readFileSync(htmlPath, "utf8");
-      html = html.replace(AUDIO_TAG + "\n</head>", "</head>").replace(AUDIO_TAG + "</head>", "</head>");
+      html = html
+        .replace(BOOT_TAG + "\n", "").replace(BOOT_TAG, "")
+        .replace(AUDIO_TAG + "\n", "").replace(AUDIO_TAG, "");
       fs.writeFileSync(htmlPath, html, "utf8");
     }
   } catch {
     return false;
   }
   const assetsDir = path.join(resourcesDir, "app.asar.unpacked", "renderer", "assets");
-  for (const f of [AUDIO_SCRIPT, ...SOUNDS]) {
+  for (const f of [BOOT_SCRIPT, AUDIO_SCRIPT, ...SKIN_CSS_FILES, ...IMAGES, ...SOUNDS]) {
     try { fs.rmSync(path.join(assetsDir, f), { force: true }); } catch {}
   }
   return true;
@@ -356,8 +384,8 @@ if (uninstall) {
   }
   const resourcesDir = findResourcesDir();
   if (resourcesDir) {
-    const audioRemoved = removeAudio(resourcesDir);
-    console.log(audioRemoved ? "点击音效注入已还原（index.html + 音效文件）。" : "音效注入还原失败（可手动用 index.html.chiikawa-bak 覆盖回来）。");
+    const removed = removeRendererPayload(resourcesDir);
+    console.log(removed ? "启动注入已还原（index.html + boot/皮肤/音效文件）。" : "注入还原失败（可手动用 index.html.chiikawa-bak 覆盖回来）。");
   }
   const reverted = revertSelection(configDir);
   console.log(removed ? "Chiikawa 皮肤已卸载。" : "未发现 Chiikawa 种子目录。");
@@ -398,21 +426,21 @@ console.log(`平台: ${process.platform}${isWin ? "（已合并 Windows 专属�
 console.log(`槽位: ${slot}  目录: ${path.join(appearanceRoot, `${slot}-${updatedAt}`)}`);
 console.log(`已写入 skin.v2.css（重写 ${n} 处图片引用），复制素材 ${copied} 张。`);
 
-// 2b. click sounds (index.html injection)
-if (hasFlag("--no-audio")) {
-  console.log("已按 --no-audio 跳过点击音效注入。");
+// 2b. renderer payload (persistent skin + sounds via index.html injection)
+if (hasFlag("--no-audio") || hasFlag("--no-inject")) {
+  console.log("已按 --no-inject 跳过启动注入（皮肤将依赖槽位应用流程，重启后可能回落官方样式）。");
 } else {
   const resourcesDir = findResourcesDir();
   if (!resourcesDir) {
-    console.warn("未定位到 WorkBuddy 安装目录，跳过音效注入（皮肤样式不受影响）。");
+    console.warn("未定位到 WorkBuddy 安装目录，跳过启动注入（槽位皮肤样式不受影响）。");
     console.warn("→ 可设置环境变量 WORKBUDDY_RESOURCES_DIR 指向 WorkBuddy 的 resources 目录后重跑。");
   } else {
-    const r = injectAudio(resourcesDir);
+    const r = injectRendererPayload(resourcesDir);
     if (r.ok) {
-      console.log(`点击音效: ${r.injected ? "已注入 index.html" : "index.html 已有注入"}，复制音效文件 ${r.copied} 个（备份: ${r.backup}）。`);
-      console.log("注意: WorkBuddy 自动更新会重置 index.html，音效消失后重跑本脚本即可恢复。");
+      console.log(`启动注入: ${r.injected ? "已注入 index.html" : "index.html 已有注入"}，复制文件 ${r.copied} 个（备份: ${r.backup}）。`);
+      console.log("注意: WorkBuddy 自动更新会重置 index.html，注入消失后重跑本脚本即可恢复。");
     } else {
-      console.warn("音效注入失败（" + r.reason + "），皮肤样式不受影响。");
+      console.warn("启动注入失败（" + r.reason + "），槽位皮肤样式不受影响。");
     }
   }
 }
